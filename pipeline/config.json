@@ -1,0 +1,112 @@
+{
+  "_comment": "RiverGuard suitability pipeline configuration. Edit and re-run the pipeline to regenerate docs/data/segments.geojson. All thresholds documented in README.md.",
+
+  "study_area": {
+    "_comment": "Bounding box for candidate reaches (WGS84). East-draining basins are selected by testing each basin's river MOUTH against the coastal separator polyline below.",
+    "lon_min": 46.3,
+    "lon_max": 51.0,
+    "lat_min": -25.2,
+    "lat_max": -12.5,
+    "coastal_separator": {
+      "_comment": "Piecewise-linear (lat -> min longitude) line separating east/south-coast river mouths (kept) from west/north-coast mouths (dropped). Approximate; verify on the preview map. Points are [lat, lon], interpolated linearly between, clamped at the ends.",
+      "points": [
+        [-12.5, 49.5],
+        [-13.5, 49.3],
+        [-14.5, 48.9],
+        [-15.5, 48.3],
+        [-16.5, 47.5],
+        [-17.5, 46.6],
+        [-25.2, 46.35]
+      ]
+    },
+    "min_upland_km2": 25,
+    "_min_upland_comment": "Drop headwater reaches with upstream catchment below this (km2); tiny escarpment gullies are not operational planting sites and bloat the output. Set to 0 to keep everything."
+  },
+
+  "segmentation": {
+    "segment_length_m": 500,
+    "buffer_m": 100,
+    "_comment": "Reaches are split into segments of ~segment_length_m, then buffered buffer_m each side for raster sampling."
+  },
+
+  "weights": {
+    "_comment": "Composite suitability weights, must sum to 1.0. Agreed 2026-08-13: clay/texture 40, land cover 30, slope 15, rainfall 15.",
+    "texture": 0.40,
+    "landcover": 0.30,
+    "slope": 0.15,
+    "rainfall": 0.15
+  },
+
+  "scoring": {
+    "texture": {
+      "_comment": "SoilGrids clay/sand %, 0-30cm depth-weighted mean. Clay ramps 0->100 between clay_lo and clay_hi %; sandy soils additionally penalised above sand_penalty_start %, max penalty sand_penalty_max points at sand_penalty_full %.",
+      "clay_lo": 10,
+      "clay_hi": 30,
+      "sand_penalty_start": 60,
+      "sand_penalty_full": 85,
+      "sand_penalty_max": 50
+    },
+    "slope": {
+      "_comment": "Mean slope in degrees over the buffer. Optimal range scores 100; ramps to flat_score below optimal_min and to steep_score at exclude_deg; > exclude_deg = excluded (cliffs).",
+      "optimal_min": 1.0,
+      "optimal_max": 12.0,
+      "flat_score": 70,
+      "steep_score": 20,
+      "exclude_deg": 30.0
+    },
+    "flood_penalty": {
+      "_comment": "Flat + low coastal floodplain likely deeply inundated: subtract penalty points when mean slope < slope_deg AND mean elevation < elev_m.",
+      "slope_deg": 0.5,
+      "elev_m": 10,
+      "penalty": 15
+    },
+    "landcover": {
+      "_comment": "ESA WorldCover class -> plantable (VM0047 candidate) flag. Score = 100 * plantable fraction of buffer. Segment excluded if fraction < min_plantable_fraction.",
+      "plantable_classes": [20, 30, 40, 60],
+      "class_names": {
+        "10": "Tree cover", "20": "Shrubland", "30": "Grassland", "40": "Cropland",
+        "50": "Built-up", "60": "Bare/sparse", "70": "Snow/ice", "80": "Water",
+        "90": "Herbaceous wetland", "95": "Mangroves", "100": "Moss/lichen"
+      },
+      "min_plantable_fraction": 0.20
+    },
+    "rainfall": {
+      "_comment": "WorldClim annual precipitation mm. Score ramps 0->100 between mm_lo and mm_hi. Calibrated against ground truth: Efaho trial site ~1100 mm (thriving) must clear the ramp comfortably; Mandrare ~600 mm scores 0.",
+      "mm_lo": 700,
+      "mm_hi": 1400
+    },
+    "aridity": {
+      "_comment": "Semi-arid flashy-hydrology handling (agreed 2026-08-13): field trials settled that bamboo fails on semi-arid braided rivers, so below exclude_below_mm annual rainfall the segment is EXCLUDED as policy (reason 'semi-arid'). In the transitional band up to penalty_to_mm a graded penalty (up to 'penalty' points, strongest near the exclusion line) still applies. SoilGrids cannot see sandy braided channel beds (it reports HIGHER clay at Mandrare than Efaho), so climate is the discriminating signal.",
+      "exclude_below_mm": 700,
+      "penalty_to_mm": 1000,
+      "penalty": 30
+    },
+    "classes": {
+      "method": "percentile",
+      "high_quantile": 0.75,
+      "low_quantile": 0.25,
+      "_comment": "Classes are RELATIVE percentiles of the non-excluded population (agreed 2026-08-13): top 25% high, middle 50% medium, bottom 25% low. The absolute 0-100 score is kept in every output for traceability; classes are for prioritisation only."
+    }
+  },
+
+  "species_recommendation": {
+    "_comment": "Per-segment default mix (balcooa/vulgaris/asper, sums to 100). Rules evaluated top-down, first match wins. PROVISIONAL desk-based logic: asper for wettest sites, balcooa mid-bank workhorse, vulgaris for lower-grade/drier sites.",
+    "rules": [
+      { "if": "rain_mm >= 2200 and texture_score >= 60", "mix": { "balcooa": 45, "vulgaris": 15, "asper": 40 } },
+      { "if": "rain_mm >= 1500", "mix": { "balcooa": 60, "vulgaris": 25, "asper": 15 } },
+      { "if": "true", "mix": { "balcooa": 45, "vulgaris": 45, "asper": 10 } }
+    ]
+  },
+
+  "output": {
+    "coordinate_precision": 5,
+    "simplify_tolerance_deg": 0.0002,
+    "geojson_path": "docs/data/segments.geojson",
+    "max_geojson_mb": 30
+  },
+
+  "sanity_checks": [
+    { "name": "Efaho (thriving trial, clayey+wet)", "lat": -24.95, "lon": 46.93, "expect": "high" },
+    { "name": "Mandrare at Amboasary (sandy, semi-arid)", "lat": -25.03, "lon": 46.45, "expect": "low/excluded" }
+  ]
+}

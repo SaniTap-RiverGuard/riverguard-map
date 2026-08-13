@@ -1,0 +1,341 @@
+{
+  "_generated_from": "VM0047_Bambusa_ARR_Calculator_FIXED v03.xlsx",
+  "_note": "Defaults extracted by pipeline/extract_defaults.py. Do not hand-edit; edit the xlsx or the marked assumption blocks and re-run.",
+  "planting": {
+    "strip_width_m": {
+      "value": 20,
+      "source": "Assumptions!B5"
+    },
+    "ha_per_km_single_side": {
+      "value": 2,
+      "source": "Assumptions!B6"
+    },
+    "density_seedlings_ha": {
+      "value": 500,
+      "source": "Assumptions!B17"
+    },
+    "mature_canopy_diameter_m": {
+      "value": 5,
+      "source": "Assumptions!B27"
+    },
+    "default_rows": {
+      "value": 5,
+      "source": "Seedling Density sheet layout (5 rows across 20 m at 5 m spacing)"
+    },
+    "default_spacing_m": {
+      "value": 4.41,
+      "source": "derived: 5 rows x 4.41 m spacing reproduces Assumptions!B17 = 500 seedlings/ha via the Seedling Density formula (note: the sheet's '5 m spacing' practical option gives 400/ha)"
+    },
+    "density_formula": "seedlings_per_ha = rows * 10000 / ((canopy_d + (rows-1)*spacing) * spacing)",
+    "density_formula_source": "Seedling Density sheet columns D,F,G (verified against all table rows)",
+    "survival_rate": {
+      "value": 0.7,
+      "source": "project brief (NOT in xlsx)"
+    }
+  },
+  "carbon": {
+    "carbon_fraction": {
+      "value": 0.47,
+      "source": "Biomass!A28 (IPCC 2003 tropical woody default)"
+    },
+    "root_shoot_ratio": {
+      "value": 0.24,
+      "source": "Biomass!A30 (IPCC default tropical)"
+    },
+    "co2e_per_c": {
+      "value": 3.6666666666666665,
+      "source": "Biomass!A29 (44/12 molecular ratio)"
+    },
+    "soc_tc_ha_yr": {
+      "value": 0.5,
+      "source": "Assumptions!B21 (soil organic carbon accrual)"
+    },
+    "minor_pools_tc_ha": {
+      "_comment": "Per-ha carbon stock (tC/ha) years 1-20 for VM0047 minor pools; added to gross when 'include minor pools' is on (default on, to reproduce Eq1/Eq30).",
+      "herb": {
+        "values": [
+          1.41,
+          1.41,
+          0.94,
+          0.94,
+          0.705,
+          0.47,
+          0.47,
+          0.3525,
+          0.3525,
+          0.235,
+          0.235,
+          0.188,
+          0.188,
+          0.141,
+          0.141,
+          0.094,
+          0.094,
+          0.047,
+          0.047,
+          0.047
+        ],
+        "source": "Eq6_CWP_herb row 8 (non-woody, est. 4% of woody)"
+      },
+      "dead_wood": {
+        "values": [
+          0.012689999999999998,
+          0.059219999999999995,
+          0.23265,
+          0.44415,
+          0.7402500000000001,
+          3.619,
+          4.885649999999999,
+          6.3332500000000005,
+          7.238,
+          8.14275,
+          13.9825,
+          15.380749999999997,
+          16.779,
+          18.177249999999997,
+          19.575499999999998,
+          20.97375,
+          21.812699999999996,
+          22.372,
+          22.931299999999997,
+          23.4906
+        ],
+        "source": "Eq8_CWP_DW row 9"
+      },
+      "litter": {
+        "values": [
+          0.705,
+          0.94,
+          1.1749999999999998,
+          1.3159999999999998,
+          1.363,
+          1.41,
+          1.4569999999999999,
+          1.504,
+          1.551,
+          1.5979999999999999,
+          1.645,
+          1.692,
+          1.7389999999999999,
+          1.7859999999999998,
+          1.833,
+          1.88,
+          1.9269999999999998,
+          1.974,
+          2.021,
+          2.068
+        ],
+        "source": "Eq10_CWP_LI row 8 (steady-state litter)"
+      }
+    },
+    "deductions": {
+      "_comment": "Net factor = (1-performance_benchmark)*(1-uncertainty)*(1-leakage)*(1-buffer) = 0.5472 with these defaults, matching Eq30 in the xlsx (agreed 2026-08-13).",
+      "performance_benchmark": {
+        "value": 0.2,
+        "source": "Eq30_Carbon_removals!E6 (placeholder pending control plots)"
+      },
+      "uncertainty": {
+        "value": 0.1,
+        "source": "Eq30_Carbon_removals!E7"
+      },
+      "leakage": {
+        "value": 0.05,
+        "source": "Eq30_Carbon_removals!E9 (VMD0054)"
+      },
+      "buffer": {
+        "value": 0.2,
+        "source": "Eq30_Carbon_removals!E10 (VCS non-permanence buffer)"
+      }
+    }
+  },
+  "finance": {
+    "carbon_price_usd": {
+      "value": 10,
+      "source": "Assumptions!B11"
+    },
+    "price_escalation": {
+      "value": 0.05,
+      "source": "Assumptions!B12"
+    },
+    "project_years": {
+      "value": 20,
+      "source": "Assumptions!B13"
+    },
+    "discount_rate": {
+      "value": 0.08,
+      "source": "Assumptions!B14"
+    },
+    "revenue_start_year": {
+      "value": 3,
+      "source": "Revenue sheet (2-year validation lag; first sale year 3). Assumptions!B15 says 2 \u2014 year 3 chosen per Adriaan 2026-08-13."
+    }
+  },
+  "species": {
+    "balcooa": {
+      "label": "Bambusa balcooa",
+      "scale": {
+        "value": 1.0,
+        "source": "measured curve (Biomass sheet)"
+      },
+      "growth_curve": [
+        {
+          "year": 1,
+          "culms_per_clump": 1.5,
+          "avg_culm_weight_kg": 1.2,
+          "agb_kg": 1.7999999999999998,
+          "total_biomass_kg": 2.2319999999999998
+        },
+        {
+          "year": 2,
+          "culms_per_clump": 3.5,
+          "avg_culm_weight_kg": 2.4,
+          "agb_kg": 8.4,
+          "total_biomass_kg": 10.416
+        },
+        {
+          "year": 3,
+          "culms_per_clump": 5.5,
+          "avg_culm_weight_kg": 6,
+          "agb_kg": 33,
+          "total_biomass_kg": 40.92
+        },
+        {
+          "year": 4,
+          "culms_per_clump": 9,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 63,
+          "total_biomass_kg": 78.12
+        },
+        {
+          "year": 5,
+          "culms_per_clump": 15,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 105,
+          "total_biomass_kg": 130.2
+        },
+        {
+          "year": 6,
+          "culms_per_clump": 20,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 140,
+          "total_biomass_kg": 173.6
+        },
+        {
+          "year": 7,
+          "culms_per_clump": 27,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 189,
+          "total_biomass_kg": 234.36
+        },
+        {
+          "year": 8,
+          "culms_per_clump": 35,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 245,
+          "total_biomass_kg": 303.8
+        },
+        {
+          "year": 9,
+          "culms_per_clump": 40,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 280,
+          "total_biomass_kg": 347.2
+        },
+        {
+          "year": 10,
+          "culms_per_clump": 45,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 315,
+          "total_biomass_kg": 390.6
+        },
+        {
+          "year": 11,
+          "culms_per_clump": 50,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 350,
+          "total_biomass_kg": 434
+        },
+        {
+          "year": 12,
+          "culms_per_clump": 55,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 385,
+          "total_biomass_kg": 477.4
+        },
+        {
+          "year": 13,
+          "culms_per_clump": 60,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 420,
+          "total_biomass_kg": 520.8
+        },
+        {
+          "year": 14,
+          "culms_per_clump": 65,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 455,
+          "total_biomass_kg": 564.2
+        },
+        {
+          "year": 15,
+          "culms_per_clump": 70,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 490,
+          "total_biomass_kg": 607.6
+        },
+        {
+          "year": 16,
+          "culms_per_clump": 75,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 525,
+          "total_biomass_kg": 651
+        },
+        {
+          "year": 17,
+          "culms_per_clump": 78,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 546,
+          "total_biomass_kg": 677.04
+        },
+        {
+          "year": 18,
+          "culms_per_clump": 80,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 560,
+          "total_biomass_kg": 694.4
+        },
+        {
+          "year": 19,
+          "culms_per_clump": 82,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 574,
+          "total_biomass_kg": 711.76
+        },
+        {
+          "year": 20,
+          "culms_per_clump": 84,
+          "avg_culm_weight_kg": 7,
+          "agb_kg": 588,
+          "total_biomass_kg": 729.12
+        }
+      ],
+      "provisional": false
+    },
+    "vulgaris": {
+      "label": "Bambusa vulgaris",
+      "scale": {
+        "value": 0.85,
+        "source": "ASSUMPTION (project brief): scaled balcooa curve, no measured data yet"
+      },
+      "provisional": true
+    },
+    "asper": {
+      "label": "Dendrocalamus asper",
+      "scale": {
+        "value": 1.0,
+        "source": "ASSUMPTION (project brief): scaled balcooa curve, no measured data yet"
+      },
+      "provisional": true
+    }
+  }
+}
