@@ -51,10 +51,11 @@ body { color: var(--text); }
 }
 .panel-block { border-bottom: 1px solid var(--panel-border); padding: 10px 2px; }
 .panel-block h2 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
-.panel-block label { display: block; font-size: 12.5px; margin: 6px 0; }
-.panel-block label.row { display: flex; align-items: center; gap: 6px; }
+.panel-block label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; margin: 6px 0; }
+.panel-block label:has(input[type=range]) { display: block; }
+.panel-block label.row { justify-content: flex-start; gap: 6px; }
 .panel-block input[type=number] {
-  width: 80px; float: right; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px;
+  width: 80px; flex: 0 0 auto; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px;
 }
 .panel-block input[type=range] { width: 100%; }
 .hint { font-size: 11px; color: #6b7a70; margin: 4px 0; }
