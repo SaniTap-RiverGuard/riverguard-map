@@ -70,6 +70,13 @@ Raw downloads (~3 GB) land in `data/raw/` and are **gitignored** — never commi
      top 25 % / middle 50 % / bottom 25 % of the non-excluded population — a
      prioritisation aid, recomputed on every pipeline run. The underlying 0–100
      score is absolute and carried in every popup and export.
+   - **Trial benchmark (absolute anchor):** segments scoring ≥ 79 — the median
+     score of the Efaho reach where the 2026 field trials succeeded — carry a
+     `tb=1` flag ("meets proven trial benchmark") in popups, exports, and a map
+     filter. This preserves the field-truth anchor alongside the relative
+     classes: the proven site sits near the ~30th percentile of the coastline,
+     i.e. thousands of km of bank score *better* than a site where bamboo
+     already demonstrably thrives.
 4. **Species recommendation** (provisional, desk-based, config `rules`):
    D. asper share raised on wettest clay-rich sites (≥ 2200 mm), B. balcooa the
    mid-bank workhorse, B. vulgaris share raised on drier/lower-grade sites.

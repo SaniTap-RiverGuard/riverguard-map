@@ -161,6 +161,11 @@ body.presenting #btn-present-exit { display: block; }
 .leaflet-popup-content { font-size: 12.5px; }
 .popup-table td { padding: 1px 6px 1px 0; }
 .popup-mix { margin-top: 4px; font-weight: 600; }
+.popup-badge {
+  display: inline-block; background: #e3f4e9; color: #0d7a3f; border: 1px solid #b3dfc4;
+  border-radius: 10px; padding: 1px 8px; font-size: 10.5px; font-weight: 700; vertical-align: 2px;
+}
+#present-benchmark { margin-top: 6px; font-size: 13px; color: #9fd8b4; }
 
 @media (max-width: 800px) {
   #panel { position: absolute; z-index: 1500; height: 100%; transform: translateX(-100%); transition: transform .2s; }

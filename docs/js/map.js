@@ -57,9 +57,18 @@ export class SuitabilityMap {
     }).addTo(this.map);
   }
 
+  /* Benchmark filter: fade segments below the proven trial benchmark. */
+  setBenchmarkFilter(on) {
+    this.benchmarkOnly = on;
+    this.restyle();
+  }
+
   _style(f) {
     const p = f.properties;
     const sel = this.selected.has(p.id);
+    if (this.benchmarkOnly && !p.tb && !sel) {
+      return { color: '#9aa59d', weight: 0.7, opacity: 0.12 };
+    }
     if (sel) {
       // Year visualisation: thicken and deepen green with canopy closure
       const t = this.canopyFraction; // 0..1
@@ -239,7 +248,8 @@ export function popupHtml(p) {
     ['Rainfall', `${p.rn} mm/yr`],
     ['Plantable land', `${Math.round(p.lf * 100)} % (${WC_NAMES[p.ld] || p.ld})`],
   ];
-  return `<b>Segment ${p.id}</b><table class="popup-table">` +
+  const badge = p.tb ? `<span class="popup-badge">✓ ≥ Efaho trial benchmark</span>` : '';
+  return `<b>Segment ${p.id}</b> ${badge}<table class="popup-table">` +
     rows.map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('') +
     `</table><div class="popup-mix">Suggested mix: balcooa ${p.mb} / vulgaris ${p.mv} / asper ${p.ma} %</div>`;
 }

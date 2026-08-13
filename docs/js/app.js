@@ -7,6 +7,7 @@ const fmt = (n, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d }
 const fmtM = n => n >= 1e6 ? '$' + (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? '$' + (n / 1e3).toFixed(0) + 'k' : '$' + n.toFixed(0);
 
 let MC = null;          // model_config.json (xlsx-derived defaults)
+let benchmarkMeta = null; // {score, total_km} from segments.geojson _benchmark
 let params = null;      // live parameters (MC + UI overrides)
 let uiCfg = null;       // planting/mix UI state
 let map = null;
@@ -37,6 +38,9 @@ async function init() {
     popupHtml,
   });
   map.loadSegments(segs);
+  benchmarkMeta = segs._benchmark || { score: 79, total_km: 0 };
+  $('present-benchmark').textContent =
+    `${fmt(benchmarkMeta.total_km)} km of river bank scores at or above the proven Efaho trial benchmark`;
 
   initInputs();
   initSearch();
@@ -150,6 +154,8 @@ function initInputs() {
 
   $('btn-clear').addEventListener('click', () => map.clearSelection());
   $('btn-select-visible-high').addEventListener('click', () => map.selectVisibleHigh());
+  $('cfg-benchmark-only').addEventListener('change', () =>
+    map.setBenchmarkFilter($('cfg-benchmark-only').checked));
 
   $('year-slider').addEventListener('input', () => setYear(parseInt($('year-slider').value)));
   $('btn-play').addEventListener('click', playPause);
@@ -199,6 +205,8 @@ function renderResults() {
   const y = parseInt($('year-slider').value);
   const s = scenario, sel = s.selection;
   $('r-bank').textContent = fmt(sel.bankKm, 1);
+  const tbKm = map.selectedProps().reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
+  $('r-tbkm').textContent = fmt(tbKm, 1);
   $('r-area').textContent = fmt(sel.areaHa, 1);
   $('r-seedlings').textContent = fmt(sel.totalSeedlings);
   $('r-net').textContent = fmt(s.netCum[Math.min(y, s.netCum.length - 1)]);
@@ -364,7 +372,9 @@ function initExports() {
       csv += [y, s.biomassT[y].toFixed(1), s.grossCum[y].toFixed(1), s.netCum[y].toFixed(1),
         s.netAnnual[y].toFixed(1), s.price[y].toFixed(2), s.revenue[y].toFixed(0), s.canopy[y].toFixed(3)].join(',') + '\n';
     }
-    csv += `\nTotals,,,,,,,\nbank_km,${s.selection.bankKm.toFixed(2)},,,,,,\narea_ha,${s.selection.areaHa.toFixed(1)},,,,,,\n` +
+    const tbKm = map.selectedProps().reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
+    csv += `\nTotals,,,,,,,\nbank_km,${s.selection.bankKm.toFixed(2)},,,,,,\n` +
+      `bank_km_meets_trial_benchmark,${tbKm.toFixed(2)},,,,,,\narea_ha,${s.selection.areaHa.toFixed(1)},,,,,,\n` +
       `seedlings,${Math.round(s.selection.totalSeedlings)},,,,,,\nnpv_usd,${s.totals.npv.toFixed(0)},,,,,,\n`;
     download('riverguard_scenario.csv', csv, 'text/csv');
   });
@@ -504,6 +514,7 @@ function assumptionsHtml() {
     ['Rainfall', 'WorldClim 2.1 annual precipitation; score ramp 700–1400 mm. <700 mm = EXCLUDED as policy (semi-arid braided systems failed field trials); −30 pt graded penalty in the 700–1000 mm transitional band', 'WorldClim + SaniTap field trials'],
     ['Flood penalty', '−15 pts if slope <0.5° and elevation <10 m', 'desk heuristic'],
     ['Classes', 'RELATIVE percentiles of non-excluded segments: top 25 % high, middle 50 % medium, bottom 25 % low. The 0–100 score is absolute and shown in every popup/export.', 'agreed 2026-08-13'],
+    ['Trial benchmark', `score ≥ ${benchmarkMeta?.score ?? 79} — the median suitability score of the Efaho reach where SaniTap's 2026 field trials succeeded. An absolute field-truth anchor, independent of the relative classes; ${fmt(benchmarkMeta?.total_km ?? 0)} km of bank meets it.`, 'SaniTap field trials + pipeline'],
     ['Species suggestion', 'asper ↑ on wettest clay-rich sites (≥2200 mm); vulgaris ↑ on drier/lower-grade sites', 'provisional desk rule'],
   ];
   const tbl = rows => rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('');

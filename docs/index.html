@@ -38,6 +38,7 @@
           <button id="btn-select-visible-high">Select visible high</button>
           <button id="btn-clear">Clear</button>
         </div>
+        <label class="row"><input type="checkbox" id="cfg-benchmark-only"> Show only segments ≥ proven trial benchmark</label>
         <div id="drawn-list"></div>
       </section>
 
@@ -104,10 +105,12 @@
       <div id="present-title">
         <h1>Project RiverGuard</h1>
         <p>Riparian Bamboo — Madagascar East Coast</p>
+        <p id="present-benchmark"></p>
       </div>
 
       <div id="results-bar">
         <div class="counter"><span class="val" id="r-bank">0</span><span class="lab">km bank</span></div>
+        <div class="counter"><span class="val" id="r-tbkm">0</span><span class="lab">km ≥ benchmark</span></div>
         <div class="counter"><span class="val" id="r-area">0</span><span class="lab">ha planted</span></div>
         <div class="counter"><span class="val" id="r-seedlings">0</span><span class="lab">seedlings</span></div>
         <div class="counter accent"><span class="val" id="r-net">0</span><span class="lab">net tCO₂e (cum.)</span></div>

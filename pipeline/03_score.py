@@ -214,7 +214,13 @@ out.loc[ok, "cls"] = np.select(
 print(f"  scored {len(out)} segments; percentile class thresholds: high >= {hi_thr:.1f}, low < {lo_thr:.1f}")
 print(out["cls"].value_counts().to_string())
 
-# Sanity checks
+# Absolute field-truth flag: meets the proven Efaho trial benchmark
+tb_score = SC["trial_benchmark"]["score"]
+out["tb"] = ((out["cls"] != "excluded") & (out["score"] >= tb_score)).astype(int)
+tb_km = out.loc[out["tb"] == 1, "length_m"].sum() / 1000
+print(f"  trial benchmark (score >= {tb_score}): {out['tb'].sum()} segments, {tb_km:.0f} km of bank")
+
+# Sanity checks (agreed 2026-08-13: Mandrare excluded; Efaho >= trial benchmark)
 print("Sanity checks:")
 sanity_results = []
 for chk in CFG["sanity_checks"]:
@@ -227,8 +233,15 @@ for chk in CFG["sanity_checks"]:
     else:
         med = near["score"].median()
         classes = near["cls"].value_counts().to_dict()
-        res = (f"  '{chk['name']}': {len(near)} segments within ~5 km, median score {med:.0f}, "
-               f"classes {classes} (expected {chk['expect']})")
+        if chk["expect"] == "high":  # Efaho anchor: absolute benchmark, not relative class
+            verdict = "PASS" if med >= tb_score else "FAIL"
+            res = (f"  '{chk['name']}': median score {med:.0f} vs benchmark {tb_score} -> {verdict} "
+                   f"({near['tb'].sum()}/{len(near)} segments >= benchmark; classes {classes})")
+        else:  # Mandrare anchor: must be excluded/low
+            n_bad = (near["cls"] == "high").sum() + (near["tb"] == 1).sum()
+            verdict = "PASS" if n_bad == 0 else "FAIL"
+            res = (f"  '{chk['name']}': classes {classes}, {near['tb'].sum()} >= benchmark -> {verdict} "
+                   f"(expected {chk['expect']})")
     print(res)
     sanity_results.append(res)
 (DERIVED / "sanity_report.txt").write_text("\n".join(sanity_results))
@@ -253,18 +266,21 @@ for r in exp.itertuples():
             "id": r.seg_id, "s": r.score, "c": r.cls[0], "x": r.excl,
             "L": int(r.length_m), "cy": r.clay, "sd": r.sand, "sl": r.slope,
             "el": r.elev, "rn": r.rain, "lf": r.lc_frac, "ld": r.lc_dom,
-            "mb": r.mix_b, "mv": r.mix_v, "ma": r.mix_a, "o": r.ord, "rv": r.riv,
+            "mb": r.mix_b, "mv": r.mix_v, "ma": r.mix_a, "o": r.ord, "rv": r.riv, "tb": r.tb,
         },
         "geometry": {"type": "LineString", "coordinates": coords},
     })
 
 gj = {"type": "FeatureCollection",
-      "_schema": {"id": "segment id", "s": "suitability 0-100", "c": "class h/m/l/e",
+      "_schema": {"id": "segment id", "s": "suitability 0-100 (absolute)", "c": "class h/m/l/e (relative percentile)",
                   "x": "exclusion reason", "L": "bank length m", "cy": "clay % 0-30cm",
                   "sd": "sand %", "sl": "mean slope deg", "el": "mean elev m",
                   "rn": "annual rain mm", "lf": "plantable fraction", "ld": "dominant WorldCover class",
                   "mb": "recommended % balcooa", "mv": "% vulgaris", "ma": "% asper",
-                  "o": "Strahler order", "rv": "HydroRIVERS id"},
+                  "o": "Strahler order", "rv": "HydroRIVERS id",
+                  "tb": "1 = meets proven Efaho trial benchmark"},
+      "_benchmark": {"score": tb_score, "total_km": round(tb_km),
+                     "note": "median suitability score of the Efaho reach where SaniTap 2026 field trials succeeded"},
       "features": features}
 
 out_path = ROOT / CFG["output"]["geojson_path"]

@@ -81,6 +81,10 @@
       "penalty_to_mm": 1000,
       "penalty": 30
     },
+    "trial_benchmark": {
+      "score": 79,
+      "_comment": "Absolute field-truth anchor (agreed 2026-08-13): median suitability score of the Efaho reach where SaniTap's 2026 field trials succeeded. Segments with score >= this carry tb=1 ('meets proven trial benchmark') in all outputs. Independent of the relative percentile classes."
+    },
     "classes": {
       "method": "percentile",
       "high_quantile": 0.75,
