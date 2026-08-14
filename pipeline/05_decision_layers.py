@@ -506,7 +506,7 @@ for r in exp.itertuples():
             "mb": r.mix_b, "mv": r.mix_v, "ma": r.mix_a, "o": r.ord, "rv": r.riv, "tb": r.tb,
             "p2": int(r.pop2k), "p5": int(r.pop5k),
             "pk": r.pa_km, "pn": (r.pa_name or "")[:40], "fk": r.forest_km,
-            "ac": r.access[0], "ak": r.access_km,
+            "ac": {"road": "r", "boat": "b", "remote": "x"}[r.access], "ak": r.access_km,
             "uc": r.pct_crop, "ug": r.pct_grass, "us": r.pct_shrub, "ub": r.pct_bare,
             "uw": r.pct_wetland, "up": r.pct_paddy,
             "fd": r.fire_dec, "ff": int(r.fire_flag),
