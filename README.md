@@ -34,6 +34,8 @@ Two parts:
 | Fire | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov) MODIS active-fire archive 2001–2024 | points | free with attribution |
 | Cyclones | [NOAA IBTrACS v04r01](https://www.ncei.noaa.gov/products/international-best-track-archive) South Indian basin | tracks | public domain |
 | Cold limit (BIO6) | [CHELSA V2.1](https://chelsa-climate.org) bio6 1981–2010 | ~1 km | CC0/CC-BY (attribution) |
+| Surface water | [JRC Global Surface Water](https://global-surface-water.appspot.com) occurrence 2021 v1.4 | 30 m | free (Copernicus/JRC, attribution) |
+| Coastline | [Natural Earth 10m](https://www.naturalearthdata.com) | vector | public domain |
 
 > **WDPA licence note:** redistribution of WDPA data is restricted. This repo
 > ships only DERIVED per-segment attributes (distance to nearest protected
@@ -83,6 +85,19 @@ Raw downloads (~3 GB) land in `data/raw/` and are **gitignored** — never commi
    - Composite minus 15 pts if slope < 0.5° **and** elevation < 10 m (deep-
      inundation floodplain risk). Segment also **excluded** if slope > 30° or
      plantable fraction < 20 %.
+   - **Inundation exclusion (added 2026-08-14):** excluded where > 40 % of the
+     buffer has JRC Global Surface Water occurrence > 25 % — bamboo does not
+     establish in seasonally/permanently submerged ground. Wide open-water
+     channels trigger this too (the buffer holds no plantable bank there).
+   - **Swamp/wetland exclusion (added 2026-08-14):** excluded where WorldCover
+     herbaceous wetland exceeds 50 % of the buffer (also avoids VM0047
+     organic-soil complications). Below that, wetland share is an attribute.
+   - **Brackish-influence flag (never an exclusion):** within 3 km of the
+     coast and below 5 m elevation, or in the Pangalanes canal corridor
+     (18.1–22.9°S, ≤5 km from coast) → field-check salinity.
+   - **Honest limitation:** fine-scale drainage (small waterlogged pockets
+     within otherwise-good banks) is below the resolution of all desk data
+     used here — planting teams judge micro-siting in the field.
    - **Classes are relative, scores are absolute:** high/medium/low are the
      top 25 % / middle 50 % / bottom 25 % of the non-excluded population — a
      prioritisation aid, recomputed on every pipeline run. The underlying 0–100

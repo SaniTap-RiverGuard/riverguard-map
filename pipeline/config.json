@@ -70,6 +70,15 @@
       },
       "min_plantable_fraction": 0.20
     },
+    "inundation": {
+      "_comment": "JRC Global Surface Water occurrence (2021 v1.4). A buffer pixel counts as inundation-prone when water occurrence > occurrence_min_pct (under water at least that share of observed time). Segment EXCLUDED ('inundated') when such pixels exceed buffer_share_max of the buffer. Added 2026-08-14 to close the waterlogging gap — clumping bamboo does not establish in seasonally/permanently submerged ground. Note: wide channels also trigger this (buffer is open water) — correctly excluded, the 100 m buffer holds no plantable bank there.",
+      "occurrence_min_pct": 25,
+      "buffer_share_max": 0.40
+    },
+    "wetland_exclusion": {
+      "_comment": "WorldCover herbaceous wetland (class 90) share of buffer above this -> EXCLUDED ('swamp/wetland'). Previously wetland only depressed the land-cover subscore (excluded only past the 80% unplantable floor). Also avoids VM0047 complications with organic wetland soils. Wetland share remains an attribute on surviving segments.",
+      "share_max": 0.50
+    },
     "rainfall": {
       "_comment": "WorldClim annual precipitation mm. Score ramps 0->100 between mm_lo and mm_hi. Calibrated against ground truth: Efaho trial site ~1100 mm (thriving) must clear the ramp comfortably; Mandrare ~600 mm scores 0.",
       "mm_lo": 700,
@@ -129,6 +138,12 @@
       "fire_radius_m": 1000,
       "fire_high_per_decade": 5,
       "_comment": "Likely-paddy: cropland pixels on slope < paddy_slope_max_deg in buffers that also contain water/herbaceous wetland. Fire pressure: MODIS active-fire detections within fire_radius_m of the segment midpoint, scaled to burns/decade; flag if >= fire_high_per_decade."
+    },
+    "salinity": {
+      "_comment": "Brackish-influence FLAG (never an exclusion): segment midpoint within coast_km of the coastline (Natural Earth 10m) AND mean elevation < elev_max_m, OR inside the Pangalanes canal corridor (east-coast strip between the corridor latitudes within corridor_coast_km of the coast). Flagged segments need field salinity checks.",
+      "coast_km": 3,
+      "elev_max_m": 5,
+      "pangalanes": { "lat_min": -22.9, "lat_max": -18.1, "corridor_coast_km": 5 }
     },
     "cold_limit": {
       "source": "CHELSA V2.1 bio6 1981-2010 (min temperature of coldest month, ~1km), window-read from the SWITCH cloud mirror into data/raw/bio6_cold.tif. Chosen over WorldClim (server outage 2026-08-14; CHELSA also better in mountain terrain). Elevation from GLO-30 (already per-segment).",

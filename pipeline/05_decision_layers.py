@@ -464,8 +464,35 @@ def layer_cold():
     return out
 
 
+# ---------------------------------------------------------------- 7. salinity proxy
+def layer_salinity():
+    cache = DERIVED / "layer_salinity.parquet"
+    if cache.exists():
+        return pd.read_parquet(cache)
+    cfgs = DL["salinity"]
+    print("Salinity proxy: coast distance (Natural Earth 10m) + Pangalanes corridor...")
+    coast = gpd.read_file(f"zip://{RAW}/ne_10m_coastline.zip!ne_10m_coastline.shp",
+                          bbox=(42, -27, 52, -11)).to_crs(UTM)
+    ctree = STRtree(coast.geometry.values)
+    pts = mid_utm.geometry.values
+    idx = ctree.nearest(pts)
+    coast_km = np.array([pts[i].distance(coast.geometry.values[j]) for i, j in enumerate(idx)]) / 1000
+    lat = mid.y.values
+    near_coast_low = (coast_km <= cfgs["coast_km"]) & (segs["elev"].values < cfgs["elev_max_m"])
+    pg = cfgs["pangalanes"]
+    pangalanes = ((lat >= pg["lat_min"]) & (lat <= pg["lat_max"]) &
+                  (coast_km <= pg["corridor_coast_km"]))
+    flag = near_coast_low | pangalanes
+    print(f"  brackish-influence flag: {flag.sum()} segments "
+          f"(coastal-low {near_coast_low.sum()}, Pangalanes corridor {pangalanes.sum()})")
+    out = pd.DataFrame({"coast_km": np.round(coast_km, 1), "sal_flag": flag.astype(int)},
+                       index=segs.index)
+    out.to_parquet(cache)
+    return out
+
+
 # ---------------------------------------------------------------- assemble
-layers = [layer_population(), layer_protected(), layer_access(), layer_landuse_fire(), layer_cyclone(), layer_cold()]
+layers = [layer_population(), layer_protected(), layer_access(), layer_landuse_fire(), layer_cyclone(), layer_cold(), layer_salinity()]
 enriched = pd.concat([segs] + layers, axis=1)
 enriched = gpd.GeoDataFrame(enriched, crs="EPSG:4326")
 
@@ -497,6 +524,19 @@ tb_km = enriched.loc[enriched.tb == 1, "length_m"].sum() / 1000
 features = []
 for r in exp.itertuples():
     coords = [[round(x, prec), round(y, prec)] for x, y in r.geometry.coords]
+    if r.cls == "excluded":
+        # Excluded segments ship core attributes only (popup still explains the
+        # exclusion); saves ~3 MB and keeps the file under the 30 MB target.
+        features.append({
+            "type": "Feature",
+            "properties": {
+                "id": r.seg_id, "s": r.score, "c": "e", "x": r.excl, "L": int(r.length_m),
+                "cy": r.clay, "sd": r.sand, "sl": r.slope, "el": r.elev, "rn": r.rain,
+                "lf": r.lc_frac, "ld": r.lc_dom, "wf": r.water_frac, "wt": r.wet_frac,
+            },
+            "geometry": {"type": "LineString", "coordinates": coords},
+        })
+        continue
     features.append({
         "type": "Feature",
         "properties": {
@@ -512,6 +552,8 @@ for r in exp.itertuples():
             "fd": r.fire_dec, "ff": int(r.fire_flag),
             "cn": int(r.cyc_n), "cc": int(r.cyc_cat), "cf": int(r.cyc_flag),
             "b6": r.bio6, "cm": int(r.cold_flag),
+            "wf": r.water_frac, "wt": r.wet_frac,
+            "ck": r.coast_km, "sx": int(r.sal_flag),
         },
         "geometry": {"type": "LineString", "coordinates": coords},
     })
@@ -530,7 +572,9 @@ gj = {"type": "FeatureCollection",
                   "uw": "wetland frac", "up": "likely-paddy frac (heuristic)",
                   "fd": "MODIS fire detections per decade within 1 km", "ff": "1 = high fire pressure",
                   "cn": "cyclone passages within 100 km, 40 yr", "cc": "max Saffir-Simpson category", "cf": "1 = high cyclone exposure",
-                  "b6": "BIO6 min temp of coldest month degC", "cm": "1 = cold-marginal caution (BIO6 < 10C)"},
+                  "b6": "BIO6 min temp of coldest month degC", "cm": "1 = cold-marginal caution (BIO6 < 10C)",
+                  "wf": "buffer fraction with JRC GSW water occurrence >25%", "wt": "herbaceous-wetland fraction of buffer",
+                  "ck": "km to coastline", "sx": "1 = possible brackish influence - field-check salinity"},
       "_benchmark": {"score": tb_score, "total_km": round(tb_km),
                      "note": "median suitability score of the Efaho reach where SaniTap 2026 field trials succeeded"},
       "features": features}

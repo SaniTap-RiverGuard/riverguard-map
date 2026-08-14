@@ -85,6 +85,7 @@ prec_s = TileSampler([DERIVED / "annual_precip_mm.tif"], all_touched=True)
 dem_s = TileSampler(sorted((RAW / "glo30").glob("*.tif")))
 slope_s = TileSampler(sorted((DERIVED / "slope").glob("*.tif")))
 wc_s = TileSampler(sorted((RAW / "worldcover").glob("*.tif")))
+gsw_s = TileSampler(sorted((RAW / "gsw").glob("*.tif")))  # JRC Global Surface Water occurrence %
 
 SC = CFG["scoring"]
 W = CFG["weights"]
@@ -150,6 +151,16 @@ for i, (line_row, buf_row) in enumerate(zip(lines.itertuples(), buffers.itertupl
     total_px = len(wc_v)
     plantable_frac = float(np.isin(wc_v, list(PLANTABLE)).sum() / total_px)
     dominant_class = int(np.bincount(wc_v.astype(int)).argmax())
+    wet_frac = float((wc_v == 90).sum() / total_px)
+
+    # JRC GSW: share of buffer under water > occurrence_min_pct of observed time
+    inu = SC["inundation"]
+    gsw_v = gsw_s.stats(g)
+    if gsw_v is not None:
+        gsw_valid = gsw_v[gsw_v <= 100]  # 0 = never water; 1-100 = occurrence %; 255 = no valid obs
+        water_frac = float((gsw_valid > inu["occurrence_min_pct"]).sum() / len(gsw_valid)) if len(gsw_valid) else 0.0
+    else:
+        water_frac = 0.0
 
     ts = texture_score(clay, sand)
     ss = slope_score(slp)
@@ -164,6 +175,10 @@ for i, (line_row, buf_row) in enumerate(zip(lines.itertuples(), buffers.itertupl
         excluded = "landcover"
     elif rain < ar["exclude_below_mm"]:
         excluded = "semi-arid"  # policy: failed field trials on semi-arid braided rivers
+    elif water_frac > inu["buffer_share_max"]:
+        excluded = "inundated"  # seasonally/permanently under water (JRC GSW)
+    elif wet_frac > SC["wetland_exclusion"]["share_max"]:
+        excluded = "swamp/wetland"  # herbaceous-wetland-dominated buffer
 
     if excluded:
         score, cls = 0.0, "excluded"
@@ -194,6 +209,8 @@ for i, (line_row, buf_row) in enumerate(zip(lines.itertuples(), buffers.itertupl
         "rain": round(rain),
         "lc_frac": round(plantable_frac, 2),
         "lc_dom": dominant_class,
+        "water_frac": round(water_frac, 2),
+        "wet_frac": round(wet_frac, 2),
         "mix_b": mix["balcooa"],
         "mix_v": mix["vulgaris"],
         "mix_a": mix["asper"],
@@ -244,6 +261,21 @@ for chk in CFG["sanity_checks"]:
                    f"(expected {chk['expect']})")
     print(res)
     sanity_results.append(res)
+
+# HARD STOP CHECK (agreed 2026-08-14): the Efaho trial reaches must not be caught
+# by the new inundation/wetland exclusions. If they are, do not freeze — report.
+from shapely.geometry import Point as _P
+efa = CFG["sanity_checks"][0]
+d = out.geometry.distance(_P(efa["lon"], efa["lat"]))
+trial = out.loc[d[d < 0.05].index]
+hit = trial[trial["excl"].isin(["inundated", "swamp/wetland"])]
+if len(hit):
+    msg = (f"STOP: {len(hit)}/{len(trial)} Efaho trial segments caught by new water exclusions "
+           f"({hit['excl'].value_counts().to_dict()}) — DO NOT FREEZE, review thresholds!")
+else:
+    msg = f"Efaho stop-check: 0/{len(trial)} trial segments caught by inundation/wetland exclusions — OK"
+print(msg)
+sanity_results.append(msg)
 (DERIVED / "sanity_report.txt").write_text("\n".join(sanity_results))
 
 gpq = DERIVED / "segments_scored.gpkg"
@@ -266,6 +298,7 @@ for r in exp.itertuples():
             "id": r.seg_id, "s": r.score, "c": r.cls[0], "x": r.excl,
             "L": int(r.length_m), "cy": r.clay, "sd": r.sand, "sl": r.slope,
             "el": r.elev, "rn": r.rain, "lf": r.lc_frac, "ld": r.lc_dom,
+            "wf": r.water_frac, "wt": r.wet_frac,
             "mb": r.mix_b, "mv": r.mix_v, "ma": r.mix_a, "o": r.ord, "rv": r.riv, "tb": r.tb,
         },
         "geometry": {"type": "LineString", "coordinates": coords},

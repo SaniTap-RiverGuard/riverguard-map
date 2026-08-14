@@ -173,6 +173,7 @@ body.presenting #btn-present-exit { display: block; }
 .popup-flag.cold { background: #ece7f5; color: #4a3a80; }
 .popup-flag.fire { background: #fbeae2; color: #90422a; }
 .popup-flag.cyc { background: #fdf3e0; color: #8a6116; }
+.popup-flag.sal { background: #e4f0f4; color: #2a5f74; }
 .row-group { display: flex; gap: 10px; flex-wrap: wrap; }
 .preset-box { background: #f2f7f3; border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
 .preset-box button { display: block; width: 100%; margin: 2px 0; padding: 6px 10px; font-size: 12.5px; border: 1px solid #bcd4c4; background: #fff; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--accent); }

@@ -276,6 +276,8 @@ const EXCL_REASONS = {
   'slope': 'cliff slope > 30°',
   'landcover': '< 20 % plantable land (forest/built/water)',
   'semi-arid': 'semi-arid braided system — failed field trials',
+  'inundated': 'seasonally/permanently inundated (JRC surface water)',
+  'swamp/wetland': 'swamp/wetland-dominated bank',
 };
 
 export function popupHtml(p) {
@@ -290,9 +292,12 @@ export function popupHtml(p) {
     ['Rainfall', `${p.rn} mm/yr`],
     ['Plantable land', `${Math.round(p.lf * 100)} % (${WC_NAMES[p.ld] || p.ld})`],
   ];
+  if (p.wf !== undefined) rows.push(['Water-covered (≥25 % of time)', `${Math.round(p.wf * 100)} % of buffer`]);
+  if (p.wt !== undefined && p.wt > 0) rows.push(['Herbaceous wetland', `${Math.round(p.wt * 100)} % of buffer`]);
   const badge = p.tb ? `<span class="popup-badge">✓ ≥ Efaho trial benchmark</span>` : '';
   const flags = [];
   if (p.cm) flags.push('<span class="popup-flag cold">❄ cold-marginal (BIO6 &lt; 10°C) — needs species check</span>');
+  if (p.sx) flags.push('<span class="popup-flag sal">🧂 possible brackish influence — field-check salinity</span>');
   if (p.ff) flags.push('<span class="popup-flag fire">🔥 high fire pressure</span>');
   if (p.cf) flags.push('<span class="popup-flag cyc">🌀 high cyclone exposure — high protection value, elevated yr 1–3 risk</span>');
   const accessName = { r: 'road-adjacent', b: 'boat-reachable (desk heuristic)', x: 'remote' }[p.ac] || '—';
@@ -310,6 +315,7 @@ export function popupHtml(p) {
     </table>`;
   return `<b>Segment ${p.id}</b> ${badge}<table class="popup-table">` +
     rows.map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('') +
-    `</table><div class="popup-mix">Suggested mix: balcooa ${p.mb} / vulgaris ${p.mv} / asper ${p.ma} %</div>` +
+    `</table>` +
+    (p.mb !== undefined ? `<div class="popup-mix">Suggested mix: balcooa ${p.mb} / vulgaris ${p.mv} / asper ${p.ma} %</div>` : '') +
     decision + (flags.length ? `<div class="popup-flags">${flags.join('')}</div>` : '');
 }
