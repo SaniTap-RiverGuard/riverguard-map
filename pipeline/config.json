@@ -102,6 +102,48 @@
     ]
   },
 
+  "decision_layers": {
+    "_comment": "Stage-6 decision-support attributes (2026-08-14). ADDITIVE: these never change suitability scores/classes. All thresholds live here.",
+    "population": {
+      "source": "WorldPop 2020 constrained 100m (maxar_v1), mdg_ppp_2020_constrained.tif",
+      "radii_km": [2, 5],
+      "aggregate_to_m": 500,
+      "_comment": "Population summed within each radius of the segment midpoint, via disk convolution on a 500 m aggregated grid."
+    },
+    "protected_areas": {
+      "source": "WDPA/WDOECM Madagascar (Protected Planet). LICENSE: derived attributes only (distance km, nearest PA name/designation) are shipped; WDPA geometries are NEVER redistributed in this repo.",
+      "forest_block_min_ha": 100,
+      "forest_tree_fraction_min": 0.5,
+      "forest_grid_m": 100,
+      "_comment": "Natural-forest blocks = connected components of >=50% tree cover (WorldCover class 10) on a 100 m grid, >= forest_block_min_ha."
+    },
+    "access": {
+      "road_classes": ["trunk", "primary", "secondary", "tertiary", "unclassified", "track"],
+      "road_snap_m": 250,
+      "rapids_gradient_pct": 1.5,
+      "_comment": "Access point = road within road_snap_m of a segment. Boat reachability: downstream traversal from access points, broken where the river LINE gradient (DEM drop / segment length) exceeds rapids_gradient_pct sustained, or at excluded/semi-arid segments. DESK HEURISTIC: DEM noise, dams and weirs are not captured; requires local confirmation."
+    },
+    "landuse_fire": {
+      "paddy_slope_max_deg": 2.0,
+      "fire_source": "FIRMS MODIS active-fire archive 2001-2025 (public). NOTE: substituted for MCD64A1 burned-area, which requires NASA Earthdata authentication; active-fire frequency is the same tavy-pressure signal at coarser confidence.",
+      "fire_radius_m": 1000,
+      "fire_high_per_decade": 5,
+      "_comment": "Likely-paddy: cropland pixels on slope < paddy_slope_max_deg in buffers that also contain water/herbaceous wetland. Fire pressure: MODIS active-fire detections within fire_radius_m of the segment midpoint, scaled to burns/decade; flag if >= fire_high_per_decade."
+    },
+    "cold_limit": {
+      "source": "CHELSA V2.1 bio6 1981-2010 (min temperature of coldest month, ~1km), window-read from the SWITCH cloud mirror into data/raw/bio6_cold.tif. Chosen over WorldClim (server outage 2026-08-14; CHELSA also better in mountain terrain). Elevation from GLO-30 (already per-segment).",
+      "bio6_max_c": 10.0,
+      "_comment": "Cold-marginal CAUTION flag where BIO6 < bio6_max_c (2026-08-14): the high-scoring inland cluster (upper Mangoro/Alaotra, ~900-1400 m) may be cold-marginal for tropical clumping bamboo. Attribute + filter only, NEVER a score change or exclusion — species cold-tolerance data is thin and needs field/literature check first."
+    },
+    "cyclone": {
+      "source": "NOAA IBTrACS v04r01, South Indian basin",
+      "radius_km": 100,
+      "window_years": 40,
+      "high_exposure_min_passages": 18,
+      "_threshold_note": "Recalibrated 2026-08-14 after seeing the distribution: the entire east coast sees >=10 passages/40yr, so the flag marks the TOP QUARTILE (>=18). Provisional pending Adriaan's review of the distributions.",
+      "_comment": "Passages = distinct storms passing within radius_km of the segment midpoint in the window. Category = max Saffir-Simpson class among those storms' in-radius points (0 = below hurricane strength). DUAL-USE framing in UI: exposure = protection value AND establishment risk."
+    }
+  },
   "output": {
     "coordinate_precision": 5,
     "simplify_tolerance_deg": 0.0002,

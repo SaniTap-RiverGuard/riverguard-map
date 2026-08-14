@@ -143,7 +143,12 @@ export function buildSelection(params, segs, polys, cfg) {
   for (const p of segs) {
     const km = p.L / 1000;
     bankKm += km;
-    const ha = km * cfg.stripWidthM / 10; // 20 m -> 2 ha/km (Assumptions!B6), single side
+    let ha = km * cfg.stripWidthM / 10; // 20 m -> 2 ha/km (Assumptions!B6), single side
+    /* Optional heuristic: likely-paddy (p.up, fraction of buffer) is not
+     * plantable; scale area by the paddy share of the plantable fraction. */
+    if (cfg.subtractPaddy && p.up > 0 && p.lf > 0) {
+      ha *= Math.max(0, 1 - p.up / p.lf);
+    }
     segAreaHa += ha;
     const seedlings = ha * perHa * cfg.survival;
     const mix = cfg.mixMode === 'recommended'

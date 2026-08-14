@@ -63,11 +63,53 @@ export class SuitabilityMap {
     this.restyle();
   }
 
+  /* General decision filter: predicate over properties; failing segments fade. */
+  setFilter(fn) {
+    this.filterFn = fn;
+    this.restyle();
+  }
+
+  /* Overlay mode: 'suit' | 'access' | 'pop' | 'cyclone' | 'cold' */
+  setOverlay(mode) {
+    this.overlay = mode;
+    this.restyle();
+  }
+
+  passesFilter(p) {
+    if (this.benchmarkOnly && !p.tb) return false;
+    if (this.filterFn && !this.filterFn(p)) return false;
+    return true;
+  }
+
+  _overlayColor(p) {
+    switch (this.overlay) {
+      case 'access':
+        return { r: '#1a9850', b: '#2166ac', x: '#8c8c8c' }[p.ac] || '#8c8c8c';
+      case 'pop': {
+        const v = p.p5 || 0;
+        return v >= 10000 ? '#08519c' : v >= 3000 ? '#3182bd' : v >= 1000 ? '#6baed6'
+          : v >= 200 ? '#bdd7e7' : '#e6eef4';
+      }
+      case 'cyclone': {
+        const n = p.cn || 0;
+        return n >= 8 ? '#67000d' : n >= 5 ? '#cb181d' : n >= 3 ? '#fb6a4a'
+          : n >= 1 ? '#fcae91' : '#e0d8d3';
+      }
+      case 'cold':
+        return p.cm ? '#6a51a3' : '#b8ceb8';
+      default:
+        return null;
+    }
+  }
+
   _style(f) {
     const p = f.properties;
     const sel = this.selected.has(p.id);
-    if (this.benchmarkOnly && !p.tb && !sel) {
+    if (!sel && !this.passesFilter(p)) {
       return { color: '#9aa59d', weight: 0.7, opacity: 0.12 };
+    }
+    if (!sel && this.overlay && this.overlay !== 'suit' && p.c !== 'e') {
+      return { color: this._overlayColor(p), weight: 2, opacity: 0.9 };
     }
     if (sel) {
       // Year visualisation: thicken and deepen green with canopy closure
@@ -125,7 +167,7 @@ export class SuitabilityMap {
     const add = [];
     for (const f of this.features) {
       const p = f.properties;
-      if (p.c !== 'h') continue;
+      if (p.c !== 'h' || !this.passesFilter(p)) continue;
       const [x, y] = midpoint(f);
       if (b.contains([y, x])) add.push(p.id);
     }
@@ -249,7 +291,25 @@ export function popupHtml(p) {
     ['Plantable land', `${Math.round(p.lf * 100)} % (${WC_NAMES[p.ld] || p.ld})`],
   ];
   const badge = p.tb ? `<span class="popup-badge">✓ ≥ Efaho trial benchmark</span>` : '';
+  const flags = [];
+  if (p.cm) flags.push('<span class="popup-flag cold">❄ cold-marginal (BIO6 &lt; 10°C) — needs species check</span>');
+  if (p.ff) flags.push('<span class="popup-flag fire">🔥 high fire pressure</span>');
+  if (p.cf) flags.push('<span class="popup-flag cyc">🌀 high cyclone exposure — high protection value, elevated yr 1–3 risk</span>');
+  const accessName = { r: 'road-adjacent', b: 'boat-reachable (desk heuristic)', x: 'remote' }[p.ac] || '—';
+  const decision = p.p5 === undefined ? '' : `
+    <div class="popup-sect">Decision support</div><table class="popup-table">
+    <tr><td>Population 2 / 5 km</td><td><b>${(p.p2 ?? 0).toLocaleString()} / ${(p.p5 ?? 0).toLocaleString()}</b></td></tr>
+    <tr><td>Nearest protected area</td><td><b>${p.pk} km</b> — ${p.pn || 'n/a'}</td></tr>
+    <tr><td>Forest block ≥100 ha</td><td><b>${p.fk} km</b></td></tr>
+    <tr><td>Access</td><td><b>${accessName}</b>${p.ak >= 0 ? ` (${p.ak} km)` : ''}</td></tr>
+    <tr><td>Land use (crop/grass/shrub)</td><td><b>${Math.round(p.uc * 100)} / ${Math.round(p.ug * 100)} / ${Math.round(p.us * 100)} %</b></td></tr>
+    ${p.up > 0 ? `<tr><td>Likely paddy (heuristic)</td><td><b>${Math.round(p.up * 100)} %</b> — not plantable</td></tr>` : ''}
+    <tr><td>Fires (per decade, 1 km)</td><td><b>${p.fd}</b></td></tr>
+    <tr><td>Cyclones (100 km, 40 yr)</td><td><b>${p.cn}</b> passages, max cat <b>${p.cc}</b></td></tr>
+    <tr><td>Coldest-month min (BIO6)</td><td><b>${p.b6} °C</b> at ${p.el} m</td></tr>
+    </table>`;
   return `<b>Segment ${p.id}</b> ${badge}<table class="popup-table">` +
     rows.map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('') +
-    `</table><div class="popup-mix">Suggested mix: balcooa ${p.mb} / vulgaris ${p.mv} / asper ${p.ma} %</div>`;
+    `</table><div class="popup-mix">Suggested mix: balcooa ${p.mb} / vulgaris ${p.mv} / asper ${p.ma} %</div>` +
+    decision + (flags.length ? `<div class="popup-flags">${flags.join('')}</div>` : '');
 }

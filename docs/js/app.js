@@ -30,6 +30,7 @@ async function init() {
     survival: MC.planting.survival_rate.value,
     mixMode: 'recommended',
     globalMix: { balcooa: 0.6, vulgaris: 0.25, asper: 0.15 },
+    subtractPaddy: false,
   };
 
   map = new SuitabilityMap('map', {
@@ -157,6 +158,47 @@ function initInputs() {
   $('cfg-benchmark-only').addEventListener('change', () =>
     map.setBenchmarkFilter($('cfg-benchmark-only').checked));
 
+  // Decision filters -> one predicate over segment properties
+  const LEGENDS = {
+    suit: 'green high · amber medium · grey low · pale excluded',
+    access: 'green road-adjacent · blue boat-reachable · grey remote',
+    pop: 'darker blue = more people within 5 km (breaks: 200 / 1k / 3k / 10k)',
+    cyclone: 'darker red = more cyclone passages within 100 km since 1986 (1/3/5/8)',
+    cold: 'purple = cold-marginal (BIO6 < 10 °C) · green = not flagged',
+  };
+  $('overlay-mode').addEventListener('change', () => {
+    map.setOverlay($('overlay-mode').value);
+    $('overlay-legend').textContent = LEGENDS[$('overlay-mode').value];
+  });
+  $('overlay-legend').textContent = LEGENDS.suit;
+
+  const applyFilters = () => {
+    const minPop = parseInt($('f-pop').value) || 0;
+    $('f-pop-val').textContent = minPop ? minPop.toLocaleString() : '0';
+    const maxPa = parseFloat($('f-pa').value);
+    const acc = { r: $('f-acc-r').checked, b: $('f-acc-b').checked, x: $('f-acc-x').checked };
+    const hideFire = $('f-fire').checked, hideCold = $('f-cold').checked;
+    const cyc = $('f-cyc').value;
+    const active = minPop > 0 || !isNaN(maxPa) || !acc.r || !acc.b || !acc.x || hideFire || hideCold || cyc !== 'any';
+    map.setFilter(!active ? null : p => {
+      if (p.p5 === undefined) return true;   // data without decision layers
+      if (minPop > 0 && p.p5 < minPop) return false;
+      if (!isNaN(maxPa) && p.pk > maxPa) return false;
+      if (!acc[p.ac]) return false;
+      if (hideFire && p.ff) return false;
+      if (hideCold && p.cm) return false;
+      if (cyc === 'high' && !p.cf) return false;
+      if (cyc === 'low' && p.cf) return false;
+      return true;
+    });
+  };
+  for (const id of ['f-pop', 'f-pa', 'f-acc-r', 'f-acc-b', 'f-acc-x', 'f-fire', 'f-cold', 'f-cyc'])
+    $(id).addEventListener('input', applyFilters);
+
+  $('cfg-paddy').addEventListener('change', () => {
+    uiCfg.subtractPaddy = $('cfg-paddy').checked; recompute();
+  });
+
   $('year-slider').addEventListener('input', () => setYear(parseInt($('year-slider').value)));
   $('btn-play').addEventListener('click', playPause);
 }
@@ -205,8 +247,12 @@ function renderResults() {
   const y = parseInt($('year-slider').value);
   const s = scenario, sel = s.selection;
   $('r-bank').textContent = fmt(sel.bankKm, 1);
-  const tbKm = map.selectedProps().reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
+  const props = map.selectedProps();
+  const tbKm = props.reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
   $('r-tbkm').textContent = fmt(tbKm, 1);
+  const cycKm = props.reduce((a, p) => a + (p.cf ? p.L : 0), 0) / 1000;
+  $('present-cyclone').textContent = cycKm > 0
+    ? `${fmt(cycKm, 1)} km of high-cyclone-exposure bank protected in this scenario` : '';
   $('r-area').textContent = fmt(sel.areaHa, 1);
   $('r-seedlings').textContent = fmt(sel.totalSeedlings);
   $('r-net').textContent = fmt(s.netCum[Math.min(y, s.netCum.length - 1)]);
@@ -372,10 +418,15 @@ function initExports() {
       csv += [y, s.biomassT[y].toFixed(1), s.grossCum[y].toFixed(1), s.netCum[y].toFixed(1),
         s.netAnnual[y].toFixed(1), s.price[y].toFixed(2), s.revenue[y].toFixed(0), s.canopy[y].toFixed(3)].join(',') + '\n';
     }
-    const tbKm = map.selectedProps().reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
+    const props = map.selectedProps();
+    const kmWhere = fn => (props.reduce((a, p) => a + (fn(p) ? p.L : 0), 0) / 1000).toFixed(2);
     csv += `\nTotals,,,,,,,\nbank_km,${s.selection.bankKm.toFixed(2)},,,,,,\n` +
-      `bank_km_meets_trial_benchmark,${tbKm.toFixed(2)},,,,,,\narea_ha,${s.selection.areaHa.toFixed(1)},,,,,,\n` +
-      `seedlings,${Math.round(s.selection.totalSeedlings)},,,,,,\nnpv_usd,${s.totals.npv.toFixed(0)},,,,,,\n`;
+      `bank_km_meets_trial_benchmark,${kmWhere(p => p.tb)},,,,,,\narea_ha,${s.selection.areaHa.toFixed(1)},,,,,,\n` +
+      `seedlings,${Math.round(s.selection.totalSeedlings)},,,,,,\nnpv_usd,${s.totals.npv.toFixed(0)},,,,,,\n` +
+      `bank_km_road_adjacent,${kmWhere(p => p.ac === 'r')},,,,,,\nbank_km_boat_reachable,${kmWhere(p => p.ac === 'b')},,,,,,\n` +
+      `bank_km_remote,${kmWhere(p => p.ac === 'x')},,,,,,\nbank_km_high_cyclone,${kmWhere(p => p.cf)},,,,,,\n` +
+      `bank_km_high_fire,${kmWhere(p => p.ff)},,,,,,\nbank_km_cold_marginal,${kmWhere(p => p.cm)},,,,,,\n` +
+      `mean_pop_5km,${props.length ? Math.round(props.reduce((a, p) => a + (p.p5 || 0), 0) / props.length) : 0},,,,,,\n`;
     download('riverguard_scenario.csv', csv, 'text/csv');
   });
   $('btn-export-geojson').addEventListener('click', () => {
@@ -517,6 +568,16 @@ function assumptionsHtml() {
     ['Trial benchmark', `score ≥ ${benchmarkMeta?.score ?? 79} — the median suitability score of the Efaho reach where SaniTap's 2026 field trials succeeded. An absolute field-truth anchor, independent of the relative classes; ${fmt(benchmarkMeta?.total_km ?? 0)} km of bank meets it.`, 'SaniTap field trials + pipeline'],
     ['Species suggestion', 'asper ↑ on wettest clay-rich sites (≥2200 mm); vulgaris ↑ on drier/lower-grade sites', 'provisional desk rule'],
   ];
+  const layers = [
+    ['Population', 'WorldPop 2020 constrained 100 m, summed within 2/5 km of segment midpoint (500 m grid convolution). Community labour pool & CCB beneficiary indicator.', 'WorldPop (maxar_v1)'],
+    ['Protected areas', 'Distance to nearest WDPA polygon + name/designation. LICENCE: only these derived values are shipped — WDPA geometries are not redistributed.', 'UNEP-WCMC/IUCN Protected Planet'],
+    ['Forest blocks', 'Distance to nearest block of ≥100 ha with ≥50 % tree cover (100 m grid from WorldCover class 10). Fuelwood-substitution / pressure-relief indicator.', 'ESA WorldCover derived'],
+    ['Access', 'Road-adjacent = OSM road (trunk→track) within 250 m. Boat-reachable = downstream of an access point until river-line gradient > 1.5 % (rapids proxy) or the semi-arid boundary. DESK HEURISTIC: DEM noise, dams and weirs not captured — needs local confirmation.', 'OSM/Geofabrik + GLO-30'],
+    ['Land use & paddy', 'WorldCover composition of each buffer. Likely-paddy: cropland in near-flat (<2°) buffers that touch water/wetland — toggleable area deduction, heuristic only.', 'ESA WorldCover derived'],
+    ['Fire pressure', 'MODIS active-fire detections (FIRMS) 2001–2024 within 1 km, scaled to per-decade; flag ≥5. SUBSTITUTION: MCD64A1 burned-area requires NASA Earthdata auth; active fire is the same tavy-pressure signal at coarser confidence.', 'NASA FIRMS'],
+    ['Cyclone exposure', 'IBTrACS storms passing within 100 km since 1986; max Saffir-Simpson category among in-radius points. DUAL-USE: high exposure = highest erosion-protection value AND elevated establishment risk in years 1–3.', 'NOAA IBTrACS v04r01'],
+    ['Cold-marginal', `BIO6 (coldest-month min temp) < 10 °C flagged as CAUTION only — the high-scoring inland cluster (upper Mangoro/Alaotra, ~900–1400 m) may be cold-marginal for tropical clumping bamboo. Species cold-tolerance data is thin; needs field/literature check before any exclusion.`, 'WorldClim 2.1 BIO6'],
+  ];
   const tbl = rows => rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('');
   return `
     <div class="disclaimer"><b>Disclaimer:</b> suitability scores are desk-based estimates from global datasets
@@ -526,7 +587,9 @@ function assumptionsHtml() {
     <h3>Model parameters (defaults from ${MC._generated_from})</h3>
     <table><tr><th>Parameter</th><th>Current value</th><th>Source</th></tr>${tbl(rows)}</table>
     <h3>Suitability scoring</h3>
-    <table><tr><th>Component</th><th>Rule</th><th>Source</th></tr>${tbl(suit)}</table>`;
+    <table><tr><th>Component</th><th>Rule</th><th>Source</th></tr>${tbl(suit)}</table>
+    <h3>Decision-support layers (context only — never change the suitability score)</h3>
+    <table><tr><th>Layer</th><th>Method & caveats</th><th>Source</th></tr>${tbl(layers)}</table>`;
 }
 
 init();

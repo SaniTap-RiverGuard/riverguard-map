@@ -28,6 +28,23 @@ Two parts:
 | Land cover | [ESA WorldCover 2021 v200](https://esa-worldcover.org) (AWS) | 10 m | CC-BY 4.0 |
 | Annual rainfall | [WorldClim 2.1](https://worldclim.org) monthly precipitation, summed | 2.5′ (~4.6 km) | CC-BY-SA 4.0 |
 | Basemap (app) | Esri World Imagery / OpenStreetMap | tiles | Esri & OSM terms |
+| Population | [WorldPop 2020 constrained](https://www.worldpop.org) (maxar_v1, MDG) | 100 m | CC-BY 4.0 |
+| Protected areas | [WDPA/WDOECM via Protected Planet](https://www.protectedplanet.net) | vector | **restricted — see note** |
+| Roads | [OSM via Geofabrik](https://download.geofabrik.de) shapefile extract | vector | ODbL |
+| Fire | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov) MODIS active-fire archive 2001–2024 | points | free with attribution |
+| Cyclones | [NOAA IBTrACS v04r01](https://www.ncei.noaa.gov/products/international-best-track-archive) South Indian basin | tracks | public domain |
+| Cold limit (BIO6) | [CHELSA V2.1](https://chelsa-climate.org) bio6 1981–2010 | ~1 km | CC0/CC-BY (attribution) |
+
+> **WDPA licence note:** redistribution of WDPA data is restricted. This repo
+> ships only DERIVED per-segment attributes (distance to nearest protected
+> area, its name/designation) — WDPA geometries are never committed or
+> published. The raw country file lives in gitignored `data/raw/` only.
+>
+> **Fire-data substitution:** the spec called for MODIS MCD64A1 burned area,
+> which requires NASA Earthdata authentication; the pipeline instead uses the
+> freely downloadable FIRMS MODIS active-fire archive (2001–2024). Same
+> tavy-pressure signal, coarser confidence per event; swap in MCD64A1 later if
+> an Earthdata token is available.
 
 Raw downloads (~3 GB) land in `data/raw/` and are **gitignored** — never commit them.
 
@@ -87,6 +104,38 @@ Raw downloads (~3 GB) land in `data/raw/` and are **gitignored** — never commi
 
 Ground-truth anchors: the Efaho river (Anosy, thriving 3–4 month trial) must
 score HIGH; the Mandrare at Amboasary (sandy, semi-arid) must score LOW.
+
+### Decision-support layers (`05_decision_layers.py`)
+
+Six ADDITIVE per-segment attribute groups — selection context alongside
+suitability, **never** part of the score (asserted in code):
+
+1. **Population** within 2/5 km of the segment midpoint (WorldPop, 500 m
+   disk convolution) — community labour pool / CCB beneficiaries.
+2. **Protected areas & forest**: km to nearest WDPA polygon (+name), km to
+   nearest ≥100 ha block of ≥50 % tree cover — fuelwood-substitution and
+   pressure-relief value.
+3. **Access**: road-adjacent (OSM road ≤250 m), boat-reachable (downstream of
+   an access point until river-line gradient >1.5 % — a rapids proxy — or the
+   semi-arid boundary), else remote. *Desk heuristic: DEM noise, dams and
+   weirs are not modelled; needs local confirmation.*
+4. **Land use & fire**: WorldCover composition per buffer; likely-paddy
+   heuristic (cropland, slope <2°, buffer touches water/wetland) as a
+   toggleable area deduction; FIRMS fire detections per decade within 1 km.
+   Cropland share is context for the crop-protection co-benefit — framed
+   with cyclone exposure (episodic east-coast floods), not the west-coast
+   10:1 seasonal-protection ratio, which is NOT claimed here.
+5. **Cyclone exposure**: IBTrACS passages within 100 km since 1986 + max
+   in-radius Saffir-Simpson category. Dual-use: protection value AND years
+   1–3 establishment risk. Flag = top quartile (≥18 passages).
+6. **Cold-limit caution**: CHELSA BIO6 < 10 °C flags cold-marginal segments
+   (upper Mangoro/Alaotra cluster) — caution attribute only pending species
+   cold-tolerance verification; never an exclusion.
+
+Run: `.venv/bin/python pipeline/05_decision_layers.py` (after step 3), then
+`06_layer_report.py` for the distribution histograms. Per-layer results are
+cached in `data/derived/layer_*.parquet`; delete a cache file to force that
+layer to recompute after a config change.
 
 ### Re-running
 
