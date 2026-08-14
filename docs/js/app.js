@@ -14,6 +14,7 @@ let map = null;
 let chart = null;
 let scenario = null;
 let playTimer = null;
+let activePreset = null;
 
 async function init() {
   const [mcRes, segRes] = await Promise.all([
@@ -41,7 +42,7 @@ async function init() {
   map.loadSegments(segs);
   benchmarkMeta = segs._benchmark || { score: 79, total_km: 0 };
   $('present-benchmark').textContent =
-    `${fmt(benchmarkMeta.total_km)} km of river bank scores at or above the proven Efaho trial benchmark`;
+    `${fmt(benchmarkMeta.total_km)} km of river bank scores at or above our proven Efaho trial benchmark`;
 
   initInputs();
   initSearch();
@@ -155,8 +156,11 @@ function initInputs() {
 
   $('btn-clear').addEventListener('click', () => map.clearSelection());
   $('btn-select-visible-high').addEventListener('click', () => map.selectVisibleHigh());
-  $('cfg-benchmark-only').addEventListener('change', () =>
-    map.setBenchmarkFilter($('cfg-benchmark-only').checked));
+  $('cfg-benchmark-only').addEventListener('change', () => {
+    clearPresetHighlight();
+    map.setBenchmarkFilter($('cfg-benchmark-only').checked);
+    applyFilters();
+  });
 
   // Decision filters -> one predicate over segment properties
   const LEGENDS = {
@@ -179,8 +183,9 @@ function initInputs() {
     const acc = { r: $('f-acc-r').checked, b: $('f-acc-b').checked, x: $('f-acc-x').checked };
     const hideFire = $('f-fire').checked, hideCold = $('f-cold').checked;
     const cyc = $('f-cyc').value;
-    const active = minPop > 0 || !isNaN(maxPa) || !acc.r || !acc.b || !acc.x || hideFire || hideCold || cyc !== 'any';
-    map.setFilter(!active ? null : p => {
+    const nActive = (minPop > 0) + !isNaN(maxPa) + (!acc.r || !acc.b || !acc.x) + hideFire +
+      hideCold + (cyc !== 'any') + $('cfg-benchmark-only').checked;
+    const pred = p => {
       if (p.p5 === undefined) return true;   // data without decision layers
       if (minPop > 0 && p.p5 < minPop) return false;
       if (!isNaN(maxPa) && p.pk > maxPa) return false;
@@ -190,26 +195,54 @@ function initInputs() {
       if (cyc === 'high' && !p.cf) return false;
       if (cyc === 'low' && p.cf) return false;
       return true;
-    });
+    };
+    map.setFilter(nActive === 0 ? null : pred);
+    // Active-filter summary bar over the map
+    if (nActive === 0) {
+      $('filter-summary').classList.add('hidden');
+    } else {
+      let km = 0;
+      const bench = $('cfg-benchmark-only').checked;
+      for (const f of map.features) {
+        const p = f.properties;
+        if (p.c !== 'e' && (!bench || p.tb) && pred(p)) km += p.L / 1000;
+      }
+      $('filter-summary-text').textContent =
+        `${nActive} filter${nActive > 1 ? 's' : ''} active — ${fmt(km)} km shown`;
+      $('filter-summary').classList.remove('hidden');
+    }
+    updatePresentationLines();
+  };
+  const clearPresetHighlight = () => {
+    activePreset = null;
+    $('preset-op').classList.remove('active');
+    $('preset-ccb').classList.remove('active');
   };
   for (const id of ['f-pop', 'f-pa', 'f-acc-r', 'f-acc-b', 'f-acc-x', 'f-fire', 'f-cold', 'f-cyc'])
-    $(id).addEventListener('input', applyFilters);
+    $(id).addEventListener('input', () => { clearPresetHighlight(); applyFilters(); });
+  $('filter-summary-clear').addEventListener('click', () => {
+    resetFilterControls();
+    clearPresetHighlight();
+    map.setBenchmarkFilter(false);
+    applyFilters();
+  });
 
   /* Filter presets (agreed 2026-08-14): each just SETS the visible filter
    * controls — users see the values and tweak from there. Headline next to
    * each button = full-dataset result of that preset's criteria. */
   const PRESETS = {
     op: {
-      label: 'benchmark + road/boat + pop>1000',
+      name: 'Easy to plant + community nearby',
       test: p => p.tb && (p.ac === 'r' || p.ac === 'b') && p.p5 > 1000,
       apply: () => { $('cfg-benchmark-only').checked = true; $('f-pop').value = 1000; $('f-acc-x').checked = false; },
     },
     ccb: {
-      label: 'benchmark + PA≤10km + high cyclone',
+      name: 'Best biodiversity & climate case',
       test: p => p.tb && p.pk <= 10 && p.cf,
       apply: () => { $('cfg-benchmark-only').checked = true; $('f-pa').value = 10; $('f-cyc').value = 'high'; },
     },
   };
+  window.__presets = PRESETS;
   const resetFilterControls = () => {
     $('cfg-benchmark-only').checked = false;
     $('f-pop').value = 0; $('f-pa').value = '';
@@ -217,8 +250,19 @@ function initInputs() {
     $('f-fire').checked = false; $('f-cold').checked = false; $('f-cyc').value = 'any';
   };
   const activatePreset = key => {
+    const btn = $(`preset-${key}`);
+    if (activePreset === key) {           // clicking the active preset turns it off
+      resetFilterControls();
+      clearPresetHighlight();
+      map.setBenchmarkFilter(false);
+      applyFilters();
+      return;
+    }
     resetFilterControls();
+    clearPresetHighlight();
     PRESETS[key].apply();
+    activePreset = key;
+    btn.classList.add('active');
     map.setBenchmarkFilter($('cfg-benchmark-only').checked);
     applyFilters();
   };
@@ -226,9 +270,11 @@ function initInputs() {
   $('preset-ccb').addEventListener('click', () => activatePreset('ccb'));
   $('preset-clear').addEventListener('click', () => {
     resetFilterControls();
+    clearPresetHighlight();
     map.setBenchmarkFilter(false);
     applyFilters();
   });
+  initTooltips();
   updatePresetStats();
 
   $('cfg-paddy').addEventListener('change', () => {
@@ -257,6 +303,45 @@ function updateMixLabels() {
   $('mix-b-val').textContent = ` ${Math.round(uiCfg.globalMix.balcooa * 100)}%`;
   $('mix-v-val').textContent = ` ${Math.round(uiCfg.globalMix.vulgaris * 100)}%`;
   $('mix-a-val').textContent = ` ${Math.round(uiCfg.globalMix.asper * 100)}%`;
+}
+
+/* Tap/hover tooltips for the ⓘ icons — one shared bubble, click-to-toggle so
+ * it works on touch screens, hover as a convenience on desktop. */
+function initTooltips() {
+  const tip = document.createElement('div');
+  tip.id = 'tooltip';
+  tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  let pinned = null;
+  const show = btn => {
+    tip.textContent = btn.dataset.tip;
+    tip.classList.add('show');
+    const r = btn.getBoundingClientRect();
+    tip.style.top = `${Math.max(6, r.bottom + 6)}px`;
+    const left = Math.min(Math.max(6, r.left - 40), window.innerWidth - tip.offsetWidth - 6);
+    tip.style.left = `${left}px`;
+  };
+  const hide = () => { tip.classList.remove('show'); pinned = null; };
+  for (const btn of document.querySelectorAll('.info')) {
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      if (pinned === btn) { hide(); return; }
+      pinned = btn; show(btn);
+    });
+    btn.addEventListener('mouseenter', () => { if (!pinned) show(btn); });
+    btn.addEventListener('mouseleave', () => { if (!pinned) hide(); });
+  }
+  document.addEventListener('click', e => { if (!e.target.closest('.info')) hide(); });
+}
+
+function updatePresentationLines() {
+  if (!map) return;
+  const props = map.selectedProps();
+  const cycKm = props.reduce((a, p) => a + (p.cf ? p.L : 0), 0) / 1000;
+  $('present-cyclone').textContent = cycKm > 0
+    ? `${fmt(cycKm, 1)} km of highly cyclone-exposed bank protected in this scenario` : '';
+  const el = $('present-preset');
+  if (el) el.textContent = activePreset ? `Showing: ${window.__presets[activePreset].name}` : '';
 }
 
 function updatePresetStats() {
@@ -302,9 +387,7 @@ function renderResults() {
   const props = map.selectedProps();
   const tbKm = props.reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
   $('r-tbkm').textContent = fmt(tbKm, 1);
-  const cycKm = props.reduce((a, p) => a + (p.cf ? p.L : 0), 0) / 1000;
-  $('present-cyclone').textContent = cycKm > 0
-    ? `${fmt(cycKm, 1)} km of high-cyclone-exposure bank protected in this scenario` : '';
+  updatePresentationLines();
   $('r-area').textContent = fmt(sel.areaHa, 1);
   $('r-seedlings').textContent = fmt(sel.totalSeedlings);
   $('r-net').textContent = fmt(s.netCum[Math.min(y, s.netCum.length - 1)]);

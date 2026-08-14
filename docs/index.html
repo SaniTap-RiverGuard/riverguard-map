@@ -38,7 +38,8 @@
           <button id="btn-select-visible-high">Select visible high</button>
           <button id="btn-clear">Clear</button>
         </div>
-        <label class="row"><input type="checkbox" id="cfg-benchmark-only"> Show only segments ≥ proven trial benchmark</label>
+        <label class="row"><input type="checkbox" id="cfg-benchmark-only"> Show only segments ≥ proven trial benchmark
+          <button class="info" type="button" data-tip="Only show banks scoring at least 79 — the median score of the Efaho reaches where our field trials are thriving.">i</button></label>
       </section>
 
       <section class="panel-block">
@@ -57,24 +58,34 @@
         <h2>Decision filters</h2>
         <p class="hint">Segments failing a filter fade out and are skipped by "Select visible high". Attributes only — suitability scores are unchanged.</p>
         <div class="preset-box">
-          <button id="preset-op">Operationally attractive</button>
+          <button id="preset-op">Easy to plant + community nearby</button>
+          <p class="preset-desc">score ≥ trial benchmark · road or boat access · &gt;1,000 people within 5 km</p>
           <span class="preset-stat" id="preset-op-stat"></span>
-          <button id="preset-ccb">CCB story</button>
+          <button id="preset-ccb">Best biodiversity &amp; climate case</button>
+          <p class="preset-desc">score ≥ trial benchmark · within 10 km of a protected area · high cyclone exposure</p>
           <span class="preset-stat" id="preset-ccb-stat"></span>
           <button id="preset-clear">Reset filters</button>
-          <p class="hint">Presets just set the filter controls below — tweak freely from there.</p>
+          <p class="hint">Presets just set the filter controls below — tweak freely from there. Click an active preset again to turn it off.</p>
         </div>
         <label>Min population within 5 km <span id="f-pop-val">0</span>
+          <button class="info" type="button" data-tip="Hide segments with fewer than this many people living within 5 km (WorldPop 2020). Proxy for labour availability and community impact.">i</button>
           <input type="range" id="f-pop" min="0" max="20000" step="500" value="0"></label>
-        <label>Max km to protected area <input type="number" id="f-pa" min="0" step="1" placeholder="off"></label>
+        <label>Max km to protected area
+          <button class="info" type="button" data-tip="Only show banks within this distance of a protected area — bamboo biomass there substitutes fuelwood and construction cutting, relieving pressure on the reserve.">i</button>
+          <input type="number" id="f-pa" min="0" step="1" placeholder="off"></label>
         <div class="row-group">
+          <span class="group-label">Access
+            <button class="info" type="button" data-tip="Road-adjacent: road within 250 m. Boat-reachable: reachable by pirogue downstream from a road access point (desk estimate — rapids inferred from river gradient; needs local confirmation). Remote: neither.">i</button></span>
           <label class="row"><input type="checkbox" id="f-acc-r" checked> Road-adjacent</label>
           <label class="row"><input type="checkbox" id="f-acc-b" checked> Boat-reachable</label>
           <label class="row"><input type="checkbox" id="f-acc-x" checked> Remote</label>
         </div>
-        <label class="row"><input type="checkbox" id="f-fire"> Hide high fire pressure</label>
-        <label class="row"><input type="checkbox" id="f-cold"> Hide cold-marginal</label>
+        <label class="row"><input type="checkbox" id="f-fire"> Hide high fire pressure
+          <button class="info" type="button" data-tip="Hide banks with 5+ satellite-detected fires per decade within 1 km (NASA MODIS, 2001–2024). Frequent fire (tavy) is both an establishment risk for young bamboo and evidence of degradation pressure.">i</button></label>
+        <label class="row"><input type="checkbox" id="f-cold"> Hide cold-marginal
+          <button class="info" type="button" data-tip="Hide banks where the coldest month drops below 10 °C (typically above ~900 m — upper Mangoro/Alaotra). Tropical clumping bamboo may grow slowly or fail there; species cold tolerance is not yet field-verified.">i</button></label>
         <label>Cyclone exposure
+          <button class="info" type="button" data-tip="High exposure = among the most cyclone-battered quarter of the coast AND hit by at least one category-4/5 storm within 100 km since 1986 (NOAA records). High exposure means the most erosion-protection value, but also more risk to young plants in years 1–3.">i</button>
           <select id="f-cyc">
             <option value="any" selected>Any</option>
             <option value="high">High-exposure flag only (top quartile)</option>
@@ -90,7 +101,8 @@
         <label>In-row spacing (m) <input type="number" id="cfg-spacing" min="2.9" max="5" step="0.1"></label>
         <div class="derived" id="density-readout"></div>
         <label>Survival rate <input type="number" id="cfg-survival" min="0.1" max="1" step="0.01"></label>
-        <label class="row"><input type="checkbox" id="cfg-paddy"> Subtract likely-paddy from plantable area (heuristic)</label>
+        <label class="row"><input type="checkbox" id="cfg-paddy"> Subtract likely-paddy from plantable area (heuristic)
+          <button class="info" type="button" data-tip="Removes probable rice paddies (flat cropland next to water/wetland, e.g. the Andapa basin) from the plantable area estimate. Desk heuristic — verify locally before planning around it.">i</button></label>
       </section>
 
       <section class="panel-block">
@@ -144,11 +156,16 @@
     <div id="map-wrap">
       <div id="map"></div>
 
+      <div id="filter-summary" class="hidden">
+        <span id="filter-summary-text"></span>
+        <button id="filter-summary-clear">clear all</button>
+      </div>
       <div id="present-title">
         <h1>Project RiverGuard</h1>
         <p>Riparian Bamboo — Madagascar East Coast</p>
         <p id="present-benchmark"></p>
         <p id="present-cyclone"></p>
+        <p id="present-preset"></p>
       </div>
 
       <div id="results-bar">
