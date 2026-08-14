@@ -117,7 +117,7 @@ function initInputs() {
     el.value = get();
     el.addEventListener('input', () => { set(parseFloat(el.value)); recompute(); });
   };
-  bind('cfg-width', () => uiCfg.stripWidthM, v => uiCfg.stripWidthM = v || 20);
+  bind('cfg-width', () => uiCfg.stripWidthM, v => { uiCfg.stripWidthM = v || 20; updatePresetStats(); });
   bind('cfg-rows', () => uiCfg.rows, v => { uiCfg.rows = Math.max(1, Math.min(5, v || 5)); params.planting.rows = uiCfg.rows; });
   bind('cfg-spacing', () => uiCfg.spacingM, v => { uiCfg.spacingM = v || 4; params.planting.spacing_m = uiCfg.spacingM; });
   bind('cfg-survival', () => uiCfg.survival, v => { uiCfg.survival = v || .7; params.planting.survival_rate = uiCfg.survival; });
@@ -195,6 +195,42 @@ function initInputs() {
   for (const id of ['f-pop', 'f-pa', 'f-acc-r', 'f-acc-b', 'f-acc-x', 'f-fire', 'f-cold', 'f-cyc'])
     $(id).addEventListener('input', applyFilters);
 
+  /* Filter presets (agreed 2026-08-14): each just SETS the visible filter
+   * controls — users see the values and tweak from there. Headline next to
+   * each button = full-dataset result of that preset's criteria. */
+  const PRESETS = {
+    op: {
+      label: 'benchmark + road/boat + pop>1000',
+      test: p => p.tb && (p.ac === 'r' || p.ac === 'b') && p.p5 > 1000,
+      apply: () => { $('cfg-benchmark-only').checked = true; $('f-pop').value = 1000; $('f-acc-x').checked = false; },
+    },
+    ccb: {
+      label: 'benchmark + PA≤10km + high cyclone',
+      test: p => p.tb && p.pk <= 10 && p.cf,
+      apply: () => { $('cfg-benchmark-only').checked = true; $('f-pa').value = 10; $('f-cyc').value = 'high'; },
+    },
+  };
+  const resetFilterControls = () => {
+    $('cfg-benchmark-only').checked = false;
+    $('f-pop').value = 0; $('f-pa').value = '';
+    for (const k of ['r', 'b', 'x']) $(`f-acc-${k}`).checked = true;
+    $('f-fire').checked = false; $('f-cold').checked = false; $('f-cyc').value = 'any';
+  };
+  const activatePreset = key => {
+    resetFilterControls();
+    PRESETS[key].apply();
+    map.setBenchmarkFilter($('cfg-benchmark-only').checked);
+    applyFilters();
+  };
+  $('preset-op').addEventListener('click', () => activatePreset('op'));
+  $('preset-ccb').addEventListener('click', () => activatePreset('ccb'));
+  $('preset-clear').addEventListener('click', () => {
+    resetFilterControls();
+    map.setBenchmarkFilter(false);
+    applyFilters();
+  });
+  updatePresetStats();
+
   $('cfg-paddy').addEventListener('change', () => {
     uiCfg.subtractPaddy = $('cfg-paddy').checked; recompute();
   });
@@ -221,6 +257,22 @@ function updateMixLabels() {
   $('mix-b-val').textContent = ` ${Math.round(uiCfg.globalMix.balcooa * 100)}%`;
   $('mix-v-val').textContent = ` ${Math.round(uiCfg.globalMix.vulgaris * 100)}%`;
   $('mix-a-val').textContent = ` ${Math.round(uiCfg.globalMix.asper * 100)}%`;
+}
+
+function updatePresetStats() {
+  const defs = {
+    'preset-op-stat': p => p.tb && (p.ac === 'r' || p.ac === 'b') && p.p5 > 1000,
+    'preset-ccb-stat': p => p.tb && p.pk <= 10 && p.cf,
+  };
+  for (const [id, test] of Object.entries(defs)) {
+    let n = 0, km = 0;
+    for (const f of map.features) {
+      const p = f.properties;
+      if (p.c !== 'e' && p.p5 !== undefined && test(p)) { n++; km += p.L / 1000; }
+    }
+    const ha = km * uiCfg.stripWidthM / 10;
+    $(id).textContent = `${fmt(n)} segs · ${fmt(km)} km · ${fmt(ha)} ha`;
+  }
 }
 
 /* ------------------------------------------------ compute + render */

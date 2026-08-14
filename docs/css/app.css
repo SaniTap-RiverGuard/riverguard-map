@@ -174,6 +174,11 @@ body.presenting #btn-present-exit { display: block; }
 .popup-flag.fire { background: #fbeae2; color: #90422a; }
 .popup-flag.cyc { background: #fdf3e0; color: #8a6116; }
 .row-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.preset-box { background: #f2f7f3; border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+.preset-box button { display: block; width: 100%; margin: 2px 0; padding: 6px 10px; font-size: 12.5px; border: 1px solid #bcd4c4; background: #fff; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--accent); }
+.preset-box button:hover { background: #e8f1eb; }
+.preset-box #preset-clear { color: #666; font-weight: 400; }
+.preset-stat { display: block; font-size: 11px; color: #5c6b61; margin: 0 0 6px 2px; font-variant-numeric: tabular-nums; }
 #overlay-mode, #f-cyc { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12.5px; }
 label:has(> #f-cyc) { display: block; }
 

@@ -56,6 +56,14 @@
       <section class="panel-block">
         <h2>Decision filters</h2>
         <p class="hint">Segments failing a filter fade out and are skipped by "Select visible high". Attributes only — suitability scores are unchanged.</p>
+        <div class="preset-box">
+          <button id="preset-op">Operationally attractive</button>
+          <span class="preset-stat" id="preset-op-stat"></span>
+          <button id="preset-ccb">CCB story</button>
+          <span class="preset-stat" id="preset-ccb-stat"></span>
+          <button id="preset-clear">Reset filters</button>
+          <p class="hint">Presets just set the filter controls below — tweak freely from there.</p>
+        </div>
         <label>Min population within 5 km <span id="f-pop-val">0</span>
           <input type="range" id="f-pop" min="0" max="20000" step="500" value="0"></label>
         <label>Max km to protected area <input type="number" id="f-pa" min="0" step="1" placeholder="off"></label>

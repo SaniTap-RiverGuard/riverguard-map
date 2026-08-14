@@ -310,11 +310,32 @@ def layer_landuse_fire():
             pct["shrub"][i] = (v == 20).sum() / tot
             pct["bare"][i] = (v == 60).sum() / tot
             pct["wetland"][i] = (v == 90).sum() / tot
-            # likely-paddy: cropland px on near-flat ground in a buffer touching water/wetland
+            # Likely-paddy, PER-PIXEL (agreed 2026-08-14): cropland pixels whose
+            # own 30 m slope is < paddy_slope_max_deg, in buffers touching
+            # water/wetland. (The earlier buffer-mean slope test was mis-specced:
+            # banks dominate the mean; the paddy signal is in the flat pixels.)
             if pct["crop"][i] > 0 and ((v == 80).any() or (v == 90).any()):
-                # slope test at buffer scale (mean slope from scored attrs is per-buffer)
-                if segs["slope"].iloc[i] < cfgl["paddy_slope_max_deg"]:
-                    pct["paddy"][i] = pct["crop"][i]
+                rr, cc = np.where(m)
+                crop_sel = a[m] == 40
+                if crop_sel.any():
+                    xs = t.c + (cc[crop_sel] + 0.5) * t.a
+                    ys = t.f + (rr[crop_sel] + 0.5) * t.e
+                    for sds, sbb in zip(slopes, sbounds):
+                        if not (sbb.left <= xs.mean() <= sbb.right and sbb.bottom <= ys.mean() <= sbb.top):
+                            continue
+                        swin = from_bounds(max(gx0, sbb.left), max(gy0, sbb.bottom),
+                                           min(gx1, sbb.right), min(gy1, sbb.top),
+                                           transform=sds.transform).round_lengths().round_offsets()
+                        if swin.width < 1 or swin.height < 1:
+                            break
+                        sa = sds.read(1, window=swin)
+                        st = sds.window_transform(swin)
+                        sc = ((xs - st.c) / st.a).astype(int).clip(0, sa.shape[1] - 1)
+                        sr = ((ys - st.f) / st.e).astype(int).clip(0, sa.shape[0] - 1)
+                        sl_px = sa[sr, sc]
+                        flat = (sl_px >= 0) & (sl_px < cfgl["paddy_slope_max_deg"])
+                        pct["paddy"][i] = flat.sum() / tot
+                        break
             break
     for d in wcs + slopes:
         d.close()
@@ -447,6 +468,18 @@ def layer_cold():
 layers = [layer_population(), layer_protected(), layer_access(), layer_landuse_fire(), layer_cyclone(), layer_cold()]
 enriched = pd.concat([segs] + layers, axis=1)
 enriched = gpd.GeoDataFrame(enriched, crs="EPSG:4326")
+
+# Cyclone flag from config (recomputed here so cached cn/cc survive rule changes)
+cfgc = DL["cyclone"]
+freq = enriched["cyc_n"] >= cfgc["high_exposure_min_passages"]
+sev = enriched["cyc_cat"] >= cfgc["high_exposure_min_category"]
+enriched["cyc_flag"] = ((freq | sev) if cfgc["high_exposure_rule"] == "or" else (freq & sev)).astype(int)
+ne = enriched[enriched.cls != "excluded"]
+cov = ne.cyc_flag.mean()
+print(f"cyclone flag ({cfgc['high_exposure_rule']}): {ne.cyc_flag.sum()}/{len(ne)} non-excluded segments = {cov*100:.0f}% "
+      f"(freq-only {freq[ne.index].mean()*100:.0f}%, severity-only {sev[ne.index].mean()*100:.0f}%)")
+if cfgc["high_exposure_rule"] == "or" and cov >= 0.45:
+    print("NOTE: OR-rule coverage approaches half the coast — per agreement, consider 'and' and re-report before freezing.")
 assert (enriched["score"] == segs["score"]).all() and (enriched["cls"] == segs["cls"]).all(), \
     "decision layers must not alter suitability!"
 enriched.to_file(DERIVED / "segments_enriched.gpkg", driver="GPKG")
