@@ -183,6 +183,15 @@ body.presenting #btn-present-exit { display: block; }
 .preset-desc { font-size: 10.5px; color: #6b7a70; margin: 1px 2px 2px; }
 .preset-stat { display: block; font-size: 11px; color: #5c6b61; margin: 0 0 6px 2px; font-variant-numeric: tabular-nums; }
 .group-label { font-size: 12.5px; display: flex; align-items: center; gap: 4px; width: 100%; }
+.display-note { font-style: italic; }
+.criterion { border-left: 3px solid #e4ebe5; padding: 3px 0 3px 8px; margin: 7px 0; }
+.criterion:has(.f-en:checked) { border-left-color: var(--accent); background: #f4f9f5; }
+.criterion .f-dir, .criterion input[type=range].indent { width: calc(100% - 14px); margin-left: 14px; margin-top: 3px; }
+.criterion .f-dir { padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+.criterion .row-group.indent { margin-left: 14px; }
+.saved-preset-row { display: flex; gap: 4px; align-items: stretch; margin: 2px 0; }
+.saved-preset-row .saved-preset-btn { flex: 1; }
+.saved-preset-del { flex: 0 0 26px; border: 1px solid #d8c4c4 !important; color: #a33 !important; font-weight: 400 !important; }
 
 button.info {
   display: inline-flex; align-items: center; justify-content: center;

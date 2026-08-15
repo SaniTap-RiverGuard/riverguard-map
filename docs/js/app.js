@@ -156,12 +156,6 @@ function initInputs() {
 
   $('btn-clear').addEventListener('click', () => map.clearSelection());
   $('btn-select-visible-high').addEventListener('click', () => map.selectVisibleHigh());
-  $('cfg-benchmark-only').addEventListener('change', () => {
-    clearPresetHighlight();
-    map.setBenchmarkFilter($('cfg-benchmark-only').checked);
-    applyFilters();
-  });
-
   // Decision filters -> one predicate over segment properties
   const LEGENDS = {
     suit: 'green high · amber medium · grey low · pale excluded',
@@ -176,106 +170,12 @@ function initInputs() {
   });
   $('overlay-legend').textContent = LEGENDS.suit;
 
-  const applyFilters = () => {
-    const minPop = parseInt($('f-pop').value) || 0;
-    $('f-pop-val').textContent = minPop ? minPop.toLocaleString() : '0';
-    const maxPa = parseFloat($('f-pa').value);
-    const acc = { r: $('f-acc-r').checked, b: $('f-acc-b').checked, x: $('f-acc-x').checked };
-    const hideFire = $('f-fire').checked, hideCold = $('f-cold').checked;
-    const cyc = $('f-cyc').value;
-    const nActive = (minPop > 0) + !isNaN(maxPa) + (!acc.r || !acc.b || !acc.x) + hideFire +
-      hideCold + (cyc !== 'any') + $('cfg-benchmark-only').checked;
-    const pred = p => {
-      if (p.p5 === undefined) return true;   // data without decision layers
-      if (minPop > 0 && p.p5 < minPop) return false;
-      if (!isNaN(maxPa) && p.pk > maxPa) return false;
-      if (!acc[p.ac]) return false;
-      if (hideFire && p.ff) return false;
-      if (hideCold && p.cm) return false;
-      if (cyc === 'high' && !p.cf) return false;
-      if (cyc === 'low' && p.cf) return false;
-      return true;
-    };
-    map.setFilter(nActive === 0 ? null : pred);
-    // Active-filter summary bar over the map
-    if (nActive === 0) {
-      $('filter-summary').classList.add('hidden');
-    } else {
-      let km = 0;
-      const bench = $('cfg-benchmark-only').checked;
-      for (const f of map.features) {
-        const p = f.properties;
-        if (p.c !== 'e' && (!bench || p.tb) && pred(p)) km += p.L / 1000;
-      }
-      $('filter-summary-text').textContent =
-        `${nActive} filter${nActive > 1 ? 's' : ''} active — ${fmt(km)} km shown`;
-      $('filter-summary').classList.remove('hidden');
-    }
-    updatePresentationLines();
-  };
-  const clearPresetHighlight = () => {
-    activePreset = null;
-    $('preset-op').classList.remove('active');
-    $('preset-ccb').classList.remove('active');
-  };
-  for (const id of ['f-pop', 'f-pa', 'f-acc-r', 'f-acc-b', 'f-acc-x', 'f-fire', 'f-cold', 'f-cyc'])
-    $(id).addEventListener('input', () => { clearPresetHighlight(); applyFilters(); });
-  $('filter-summary-clear').addEventListener('click', () => {
-    resetFilterControls();
-    clearPresetHighlight();
-    map.setBenchmarkFilter(false);
-    applyFilters();
-  });
+  initFilterControls();
 
   /* Filter presets (agreed 2026-08-14): each just SETS the visible filter
    * controls — users see the values and tweak from there. Headline next to
    * each button = full-dataset result of that preset's criteria. */
-  const PRESETS = {
-    op: {
-      name: 'Easy to plant + community nearby',
-      test: p => p.tb && (p.ac === 'r' || p.ac === 'b') && p.p5 > 1000,
-      apply: () => { $('cfg-benchmark-only').checked = true; $('f-pop').value = 1000; $('f-acc-x').checked = false; },
-    },
-    ccb: {
-      name: 'Best biodiversity & climate case',
-      test: p => p.tb && p.pk <= 10 && p.cf,
-      apply: () => { $('cfg-benchmark-only').checked = true; $('f-pa').value = 10; $('f-cyc').value = 'high'; },
-    },
-  };
-  window.__presets = PRESETS;
-  const resetFilterControls = () => {
-    $('cfg-benchmark-only').checked = false;
-    $('f-pop').value = 0; $('f-pa').value = '';
-    for (const k of ['r', 'b', 'x']) $(`f-acc-${k}`).checked = true;
-    $('f-fire').checked = false; $('f-cold').checked = false; $('f-cyc').value = 'any';
-  };
-  const activatePreset = key => {
-    const btn = $(`preset-${key}`);
-    if (activePreset === key) {           // clicking the active preset turns it off
-      resetFilterControls();
-      clearPresetHighlight();
-      map.setBenchmarkFilter(false);
-      applyFilters();
-      return;
-    }
-    resetFilterControls();
-    clearPresetHighlight();
-    PRESETS[key].apply();
-    activePreset = key;
-    btn.classList.add('active');
-    map.setBenchmarkFilter($('cfg-benchmark-only').checked);
-    applyFilters();
-  };
-  $('preset-op').addEventListener('click', () => activatePreset('op'));
-  $('preset-ccb').addEventListener('click', () => activatePreset('ccb'));
-  $('preset-clear').addEventListener('click', () => {
-    resetFilterControls();
-    clearPresetHighlight();
-    map.setBenchmarkFilter(false);
-    applyFilters();
-  });
   initTooltips();
-  updatePresetStats();
 
   $('cfg-paddy').addEventListener('change', () => {
     uiCfg.subtractPaddy = $('cfg-paddy').checked; recompute();
@@ -303,6 +203,223 @@ function updateMixLabels() {
   $('mix-b-val').textContent = ` ${Math.round(uiCfg.globalMix.balcooa * 100)}%`;
   $('mix-v-val').textContent = ` ${Math.round(uiCfg.globalMix.vulgaris * 100)}%`;
   $('mix-a-val').textContent = ` ${Math.round(uiCfg.globalMix.asper * 100)}%`;
+}
+
+/* ------------------------------------------------ decision filters
+ * One principle: the user switches criteria on/off and sets their DIRECTION —
+ * the tool never decides whether an attribute is good or bad. Every criterion
+ * is [enable checkbox] + [direction/threshold control]; disabled = zero effect.
+ */
+const BUILTIN_PRESETS = {
+  op: {
+    name: 'Easy to plant + community nearby',
+    state: { suit: { on: true, dir: 'tb' }, acc: { on: true, r: true, b: true, x: false }, pop: { on: true, min: 1000 } },
+  },
+  bio: {
+    name: 'Best biodiversity case',
+    state: { suit: { on: true, dir: 'tb' }, pa: { on: true, max: 10 } },
+    /* Cyclone deliberately NOT part of this preset (2026-08-15): conflating the
+     * adaptation narrative with biodiversity proximity wrongly wiped out Anosy
+     * sites near Tsitongambarika. Cyclone stays an independent filter. */
+  },
+};
+
+function defaultFilterState() {
+  return {
+    suit: { on: false, dir: 'tb' },
+    acc: { on: false, r: true, b: true, x: false },
+    pop: { on: false, min: 1000 },
+    pa: { on: false, max: 10 },
+    cyc: { on: false, dir: 'only' },
+    cold: { on: false, dir: 'excl' },
+    paddy: { on: false, max: 30 },
+    fire: { on: false, dir: 'excl' },
+    sal: { on: false },
+  };
+}
+
+function readFilterState() {
+  return {
+    suit: { on: $('fe-suit').checked, dir: $('fd-suit').value },
+    acc: { on: $('fe-acc').checked, r: $('fd-acc-r').checked, b: $('fd-acc-b').checked, x: $('fd-acc-x').checked },
+    pop: { on: $('fe-pop').checked, min: +$('fd-pop').value },
+    pa: { on: $('fe-pa').checked, max: +$('fd-pa').value },
+    cyc: { on: $('fe-cyc').checked, dir: $('fd-cyc').value },
+    cold: { on: $('fe-cold').checked, dir: $('fd-cold').value },
+    paddy: { on: $('fe-paddy').checked, max: +$('fd-paddy').value },
+    fire: { on: $('fe-fire').checked, dir: $('fd-fire').value },
+    sal: { on: $('fe-sal').checked },
+  };
+}
+
+function writeFilterState(s) {
+  $('fe-suit').checked = s.suit.on; $('fd-suit').value = s.suit.dir;
+  $('fe-acc').checked = s.acc.on;
+  $('fd-acc-r').checked = s.acc.r; $('fd-acc-b').checked = s.acc.b; $('fd-acc-x').checked = s.acc.x;
+  $('fe-pop').checked = s.pop.on; $('fd-pop').value = s.pop.min;
+  $('fe-pa').checked = s.pa.on; $('fd-pa').value = s.pa.max;
+  $('fe-cyc').checked = s.cyc.on; $('fd-cyc').value = s.cyc.dir;
+  $('fe-cold').checked = s.cold.on; $('fd-cold').value = s.cold.dir;
+  $('fe-paddy').checked = s.paddy.on; $('fd-paddy').value = s.paddy.max;
+  $('fe-fire').checked = s.fire.on; $('fd-fire').value = s.fire.dir;
+  $('fe-sal').checked = s.sal.on;
+  updateFilterValueLabels();
+}
+
+function updateFilterValueLabels() {
+  $('fd-pop-val').textContent = (+$('fd-pop').value).toLocaleString();
+  $('fd-pa-val').textContent = $('fd-pa').value;
+  $('fd-paddy-val').textContent = $('fd-paddy').value;
+}
+
+function predicateFrom(s) {
+  return p => {
+    if (p.p5 === undefined) return true;   // excluded segments carry no decision attrs; class filter below
+    if (s.suit.on) {
+      if (s.suit.dir === 'tb' && !p.tb) return false;
+      if (s.suit.dir === 'm' && !(p.c === 'm' || p.c === 'h')) return false;
+      if (s.suit.dir === 'h' && p.c !== 'h') return false;
+    }
+    if (s.acc.on && !{ r: s.acc.r, b: s.acc.b, x: s.acc.x }[p.ac]) return false;
+    if (s.pop.on && p.p5 < s.pop.min) return false;
+    if (s.pa.on && p.pk > s.pa.max) return false;
+    if (s.cyc.on && (s.cyc.dir === 'only' ? !p.cf : p.cf)) return false;
+    if (s.cold.on && (s.cold.dir === 'only' ? !p.cm : p.cm)) return false;
+    if (s.paddy.on && p.up * 100 > s.paddy.max) return false;
+    if (s.fire.on && (s.fire.dir === 'only' ? !p.ff : p.ff)) return false;
+    if (s.sal.on && p.sx) return false;
+    return true;
+  };
+}
+
+function countActive(s) {
+  return Object.values(s).filter(c => c.on).length;
+}
+
+function matchStats(pred) {
+  let n = 0, km = 0;
+  for (const f of map.features) {
+    const p = f.properties;
+    if (p.c !== 'e' && pred(p)) { n++; km += p.L / 1000; }
+  }
+  return { n, km, ha: km * uiCfg.stripWidthM / 10 };
+}
+
+function applyFilters() {
+  updateFilterValueLabels();
+  const s = readFilterState();
+  const nActive = countActive(s);
+  const pred = predicateFrom(s);
+  map.setFilter(nActive === 0 ? null : pred);
+  const m = matchStats(pred);
+  $('filter-match').innerHTML = nActive === 0
+    ? 'No filters active — all segments match.'
+    : `<b>${fmt(m.n)}</b> segments · <b>${fmt(m.km)}</b> km · <b>${fmt(m.ha)}</b> ha match`;
+  if (nActive === 0) {
+    $('filter-summary').classList.add('hidden');
+  } else {
+    $('filter-summary-text').textContent =
+      `${nActive} filter${nActive > 1 ? 's' : ''} active — ${fmt(m.km)} km shown`;
+    $('filter-summary').classList.remove('hidden');
+  }
+  updatePresentationLines();
+}
+
+function clearPresetHighlight() {
+  activePreset = null;
+  for (const b of document.querySelectorAll('.preset-btn, .saved-preset-btn')) b.classList.remove('active');
+}
+
+function presetName(key) {
+  if (!key) return null;
+  if (BUILTIN_PRESETS[key]) return BUILTIN_PRESETS[key].name;
+  return key.startsWith('saved:') ? key.slice(6) : key;
+}
+
+function loadSavedPresets() {
+  try { return JSON.parse(localStorage.getItem('rg_presets') || '{}'); } catch { return {}; }
+}
+
+function activatePreset(key, state, btn) {
+  if (activePreset === key) {   // toggle off
+    writeFilterState(defaultFilterState());
+    clearPresetHighlight();
+    applyFilters();
+    return;
+  }
+  clearPresetHighlight();
+  const full = defaultFilterState();
+  for (const [k, v] of Object.entries(state)) full[k] = { ...full[k], ...v, on: true };
+  writeFilterState(full);
+  activePreset = key;
+  if (btn) btn.classList.add('active');
+  applyFilters();
+}
+
+function renderSavedPresets() {
+  const box = $('saved-presets');
+  const saved = loadSavedPresets();
+  box.innerHTML = '';
+  for (const [name, state] of Object.entries(saved)) {
+    const row = document.createElement('div');
+    row.className = 'saved-preset-row';
+    const btn = document.createElement('button');
+    btn.className = 'saved-preset-btn';
+    btn.textContent = name;
+    btn.addEventListener('click', () => activatePreset(`saved:${name}`, state, btn));
+    const del = document.createElement('button');
+    del.className = 'saved-preset-del';
+    del.textContent = '✕';
+    del.title = 'Delete preset';
+    del.addEventListener('click', () => {
+      const cur = loadSavedPresets();
+      delete cur[name];
+      localStorage.setItem('rg_presets', JSON.stringify(cur));
+      renderSavedPresets();
+    });
+    row.append(btn, del);
+    const stat = document.createElement('span');
+    stat.className = 'preset-stat';
+    const m = matchStats(predicateFrom({ ...defaultFilterState(), ...state }));
+    stat.textContent = `${fmt(m.n)} segs · ${fmt(m.km)} km · ${fmt(m.ha)} ha`;
+    box.append(row, stat);
+  }
+}
+
+function initFilterControls() {
+  writeFilterState(defaultFilterState());
+  const ids = ['fe-suit', 'fd-suit', 'fe-acc', 'fd-acc-r', 'fd-acc-b', 'fd-acc-x', 'fe-pop', 'fd-pop',
+    'fe-pa', 'fd-pa', 'fe-cyc', 'fd-cyc', 'fe-cold', 'fd-cold', 'fe-paddy', 'fd-paddy',
+    'fe-fire', 'fd-fire', 'fe-sal'];
+  for (const id of ids)
+    $(id).addEventListener('input', () => { clearPresetHighlight(); applyFilters(); });
+  for (const btn of document.querySelectorAll('.preset-btn')) {
+    const key = btn.dataset.preset;
+    btn.addEventListener('click', () => activatePreset(key, BUILTIN_PRESETS[key].state, btn));
+  }
+  $('preset-clear').addEventListener('click', () => {
+    writeFilterState(defaultFilterState());
+    clearPresetHighlight();
+    applyFilters();
+  });
+  $('filter-summary-clear').addEventListener('click', () => {
+    writeFilterState(defaultFilterState());
+    clearPresetHighlight();
+    applyFilters();
+  });
+  $('preset-save').addEventListener('click', () => {
+    const s = readFilterState();
+    if (countActive(s) === 0) { alert('Activate at least one filter first.'); return; }
+    const name = prompt('Preset name:');
+    if (!name) return;
+    const saved = loadSavedPresets();
+    saved[name.trim()] = s;
+    localStorage.setItem('rg_presets', JSON.stringify(saved));
+    renderSavedPresets();
+  });
+  renderSavedPresets();
+  updatePresetStats();
+  applyFilters();
 }
 
 /* Tap/hover tooltips for the ⓘ icons — one shared bubble, click-to-toggle so
@@ -341,22 +458,15 @@ function updatePresentationLines() {
   $('present-cyclone').textContent = cycKm > 0
     ? `${fmt(cycKm, 1)} km of highly cyclone-exposed bank protected in this scenario` : '';
   const el = $('present-preset');
-  if (el) el.textContent = activePreset ? `Showing: ${window.__presets[activePreset].name}` : '';
+  if (el) el.textContent = activePreset ? `Showing: ${presetName(activePreset)}` : '';
 }
 
 function updatePresetStats() {
-  const defs = {
-    'preset-op-stat': p => p.tb && (p.ac === 'r' || p.ac === 'b') && p.p5 > 1000,
-    'preset-ccb-stat': p => p.tb && p.pk <= 10 && p.cf,
-  };
-  for (const [id, test] of Object.entries(defs)) {
-    let n = 0, km = 0;
-    for (const f of map.features) {
-      const p = f.properties;
-      if (p.c !== 'e' && p.p5 !== undefined && test(p)) { n++; km += p.L / 1000; }
-    }
-    const ha = km * uiCfg.stripWidthM / 10;
-    $(id).textContent = `${fmt(n)} segs · ${fmt(km)} km · ${fmt(ha)} ha`;
+  for (const [key, def] of Object.entries(BUILTIN_PRESETS)) {
+    const full = defaultFilterState();
+    for (const [k, v] of Object.entries(def.state)) full[k] = { ...full[k], ...v, on: true };
+    const m = matchStats(predicateFrom(full));
+    $(`preset-${key}-stat`).textContent = `${fmt(m.n)} segs · ${fmt(m.km)} km · ${fmt(m.ha)} ha`;
   }
 }
 

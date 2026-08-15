@@ -57,13 +57,7 @@ export class SuitabilityMap {
     }).addTo(this.map);
   }
 
-  /* Benchmark filter: fade segments below the proven trial benchmark. */
-  setBenchmarkFilter(on) {
-    this.benchmarkOnly = on;
-    this.restyle();
-  }
-
-  /* General decision filter: predicate over properties; failing segments fade. */
+  /* Decision filter: predicate over properties; failing segments fade. */
   setFilter(fn) {
     this.filterFn = fn;
     this.restyle();
@@ -76,9 +70,7 @@ export class SuitabilityMap {
   }
 
   passesFilter(p) {
-    if (this.benchmarkOnly && !p.tb) return false;
-    if (this.filterFn && !this.filterFn(p)) return false;
-    return true;
+    return !this.filterFn || this.filterFn(p);
   }
 
   _overlayColor(p) {
