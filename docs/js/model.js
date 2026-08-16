@@ -145,10 +145,13 @@ export function buildSelection(params, segs, polys, cfg) {
     bankKm += km;
     /* Effective plantable area (VM0047 — no displacement of existing trees):
      * raw strip area × the buffer's plantable fraction (candidate classes only;
-     * tree cover, built-up, water, wetland are never counted), minus the
-     * likely-paddy share when that heuristic is enabled. Cover fractions are
-     * measured over the 100 m sampling buffer and applied to the strip. */
-    const plantable = Math.max(0, (p.lf ?? 1) - (cfg.subtractPaddy ? (p.up ?? 0) : 0));
+     * tree cover, built-up, water, wetland are never counted). Cropland is
+     * counted at cfg.croplandShare (CALIBRATION ASSUMPTION, 2026-08-16:
+     * terraced paddy cannot be reliably detected from desk data, so all
+     * cropland gets a participation/plantability discount instead). Cover
+     * fractions are measured over the 100 m sampling buffer. */
+    const share = cfg.croplandShare ?? 0.5;
+    const plantable = Math.max(0, (p.lf ?? 1) - (p.uc ?? 0) * (1 - share));
     const ha = km * cfg.stripWidthM / 10 * plantable;
     segAreaHa += ha;
     const seedlings = ha * perHa * cfg.survival;

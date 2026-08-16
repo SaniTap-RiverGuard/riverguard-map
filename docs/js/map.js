@@ -343,14 +343,15 @@ const EXCL_REASONS = {
 /* Post-deduction plantable fraction with the reasons field teams can check on
  * the ground: effective = candidate-class fraction minus likely-paddy. */
 function plantableText(p) {
-  const eff = Math.max(0, p.lf - (p.up || 0));
+  const share = window.__rgCropShare ?? 0.5;
+  const eff = Math.max(0, p.lf - (p.uc || 0) * (1 - share));
   if (p.ut === undefined) return `${Math.round(eff * 100)} % (${WC_NAMES[p.ld] || p.ld})`;
   const ded = [];
   if (p.ut > 0.005) ded.push(`${Math.round(p.ut * 100)}% trees`);
   const ww = (p.uo || 0) + (p.uw || 0);
   if (ww > 0.005) ded.push(`${Math.round(ww * 100)}% water/wetland`);
-  if ((p.up || 0) > 0.005) ded.push(`${Math.round(p.up * 100)}% likely paddy`);
-  return `${Math.round(eff * 100)} % of buffer` + (ded.length ? ` (deducted: ${ded.join(', ')})` : '');
+  if ((p.uc || 0) > 0.005) ded.push(`cropland ${Math.round(p.uc * 100)}% counted at ${Math.round(share * 100)}%`);
+  return `${Math.round(eff * 100)} % of buffer` + (ded.length ? ` (${ded.join(', ')})` : '');
 }
 
 export function popupHtml(p) {

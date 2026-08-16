@@ -25,14 +25,18 @@ async function init() {
 
   params = liveParams();
   uiCfg = {
-    stripWidthM: MC.planting.strip_width_m.value,
+    /* Tool default (field decision 2026-08-16): single row at the bank lip,
+     * 5 m strip — diverges from the xlsx's 20 m / 5-row model; multi-row stays
+     * one click away via these controls. */
+    stripWidthM: MC.planting.default_strip_width_m?.value ?? MC.planting.strip_width_m.value,
     rows: MC.planting.default_rows.value,
     spacingM: MC.planting.default_spacing_m.value,
     survival: MC.planting.survival_rate.value,
+    croplandShare: MC.planting.cropland_plantable_share?.value ?? 0.5,
     mixMode: 'recommended',
     globalMix: { balcooa: 0.6, vulgaris: 0.25, asper: 0.15 },
-    subtractPaddy: false,
   };
+  window.__rgCropShare = uiCfg.croplandShare;
 
   map = new SuitabilityMap('map', {
     onSelectionChange: () => { recompute(); writeHash(); },
@@ -118,7 +122,9 @@ function initInputs() {
     el.value = get();
     el.addEventListener('input', () => { set(parseFloat(el.value)); recompute(); });
   };
-  bind('cfg-width', () => uiCfg.stripWidthM, v => { uiCfg.stripWidthM = v || 20; updatePresetStats(); });
+  bind('cfg-width', () => uiCfg.stripWidthM, v => { uiCfg.stripWidthM = v || 5; updatePresetStats(); });
+  $('cfg-cropshare').value = uiCfg.croplandShare * 100;
+  $('cfg-cropshare-val').textContent = Math.round(uiCfg.croplandShare * 100);
   bind('cfg-rows', () => uiCfg.rows, v => { uiCfg.rows = Math.max(1, Math.min(5, v || 5)); params.planting.rows = uiCfg.rows; });
   bind('cfg-spacing', () => uiCfg.spacingM, v => { uiCfg.spacingM = v || 4; params.planting.spacing_m = uiCfg.spacingM; });
   bind('cfg-survival', () => uiCfg.survival, v => { uiCfg.survival = v || .7; params.planting.survival_rate = uiCfg.survival; });
@@ -188,8 +194,11 @@ function initInputs() {
    * each button = full-dataset result of that preset's criteria. */
   initTooltips();
 
-  $('cfg-paddy').addEventListener('change', () => {
-    uiCfg.subtractPaddy = $('cfg-paddy').checked; recompute();
+  $('cfg-cropshare').addEventListener('input', () => {
+    uiCfg.croplandShare = (+$('cfg-cropshare').value) / 100;
+    $('cfg-cropshare-val').textContent = $('cfg-cropshare').value;
+    window.__rgCropShare = uiCfg.croplandShare;
+    updatePresetStats(); recompute(); applyFilters();
   });
 
   $('year-slider').addEventListener('input', () => setYear(parseInt($('year-slider').value)));
@@ -243,7 +252,6 @@ function defaultFilterState() {
     pa: { on: false, max: 10 },
     cyc: { on: false, dir: 'only' },
     cold: { on: false, dir: 'excl' },
-    paddy: { on: false, max: 30 },
     fire: { on: false, dir: 'excl' },
     sal: { on: false },
   };
@@ -257,7 +265,6 @@ function readFilterState() {
     pa: { on: $('fe-pa').checked, max: +$('fd-pa').value },
     cyc: { on: $('fe-cyc').checked, dir: $('fd-cyc').value },
     cold: { on: $('fe-cold').checked, dir: $('fd-cold').value },
-    paddy: { on: $('fe-paddy').checked, max: +$('fd-paddy').value },
     fire: { on: $('fe-fire').checked, dir: $('fd-fire').value },
     sal: { on: $('fe-sal').checked },
   };
@@ -271,7 +278,6 @@ function writeFilterState(s) {
   $('fe-pa').checked = s.pa.on; $('fd-pa').value = s.pa.max;
   $('fe-cyc').checked = s.cyc.on; $('fd-cyc').value = s.cyc.dir;
   $('fe-cold').checked = s.cold.on; $('fd-cold').value = s.cold.dir;
-  $('fe-paddy').checked = s.paddy.on; $('fd-paddy').value = s.paddy.max;
   $('fe-fire').checked = s.fire.on; $('fd-fire').value = s.fire.dir;
   $('fe-sal').checked = s.sal.on;
   updateFilterValueLabels();
@@ -280,7 +286,6 @@ function writeFilterState(s) {
 function updateFilterValueLabels() {
   $('fd-pop-val').textContent = (+$('fd-pop').value).toLocaleString();
   $('fd-pa-val').textContent = $('fd-pa').value;
-  $('fd-paddy-val').textContent = $('fd-paddy').value;
 }
 
 function predicateFrom(s) {
@@ -296,7 +301,6 @@ function predicateFrom(s) {
     if (s.pa.on && p.pk > s.pa.max) return false;
     if (s.cyc.on && (s.cyc.dir === 'only' ? !p.cf : p.cf)) return false;
     if (s.cold.on && (s.cold.dir === 'only' ? !p.cm : p.cm)) return false;
-    if (s.paddy.on && p.up * 100 > s.paddy.max) return false;
     if (s.fire.on && (s.fire.dir === 'only' ? !p.ff : p.ff)) return false;
     if (s.sal.on && p.sx) return false;
     return true;
@@ -313,7 +317,8 @@ function matchStats(pred) {
     const p = f.properties;
     if (p.c !== 'e' && pred(p)) {
       n++; km += p.L / 1000;
-      ha += p.L / 1000 * uiCfg.stripWidthM / 10 * (p.lf ?? 1); // effective plantable ha
+      const plantable = Math.max(0, (p.lf ?? 1) - (p.uc ?? 0) * (1 - uiCfg.croplandShare));
+      ha += p.L / 1000 * uiCfg.stripWidthM / 10 * plantable; // effective plantable ha
     }
   }
   return { n, km, ha };
@@ -403,8 +408,7 @@ function renderSavedPresets() {
 function initFilterControls() {
   writeFilterState(defaultFilterState());
   const ids = ['fe-suit', 'fd-suit', 'fe-acc', 'fd-acc-r', 'fd-acc-b', 'fd-acc-x', 'fe-pop', 'fd-pop',
-    'fe-pa', 'fd-pa', 'fe-cyc', 'fd-cyc', 'fe-cold', 'fd-cold', 'fe-paddy', 'fd-paddy',
-    'fe-fire', 'fd-fire', 'fe-sal'];
+    'fe-pa', 'fd-pa', 'fe-cyc', 'fd-cyc', 'fe-cold', 'fd-cold', 'fe-fire', 'fd-fire', 'fe-sal'];
   for (const id of ids)
     $(id).addEventListener('input', () => { clearPresetHighlight(); applyFilters(); });
   for (const btn of document.querySelectorAll('.preset-btn')) {
@@ -807,8 +811,8 @@ function initAssumptions() {
 function assumptionsHtml() {
   const d = params.carbon.deductions;
   const rows = [
-    ['Riparian strip width', `${uiCfg.stripWidthM} m`, MC.planting.strip_width_m.source],
-    ['Effective plantable area', 'strip area × plantable fraction of the buffer (WorldCover candidate classes — tree cover, built-up, water, wetland never counted; VM0047 forbids displacing existing trees), minus likely-paddy when enabled. Narrow gallery-forest lines are visible at 10 m resolution but sub-10 m tree rows are NOT — field teams confirm micro-siting.', 'ESA WorldCover derived (fixed 2026-08-16)'],
+    ['Riparian strip width', `${uiCfg.stripWidthM} m (current)`, `TOOL DEFAULT ${MC.planting.default_strip_width_m?.value ?? 5} m — single row at the bank lip: farmers cultivate to the river edge, so a 20 m ribbon is optimistic to negotiate while one row barely invades farmland (field decision Aug 2026). DIVERGES from the financial-model xlsx (Assumptions!B5 = 20 m, 5 rows, 500/ha), which is unchanged; the old layout remains selectable via width/rows/spacing.`],
+    ['Effective plantable area', `strip area × plantable fraction of the buffer (WorldCover candidate classes — tree cover, built-up, water, wetland never counted; VM0047 forbids displacing existing trees). Cropland is counted at ${Math.round((uiCfg.croplandShare ?? 0.5) * 100)} % plantable — a CALIBRATION ASSUMPTION, not a detection: terraced paddy is not reliably detectable from desk data (field-validated Aug 2026; all four test points were paddy). Recalibrate from Efaho farmer-participation data. Narrow gallery-forest lines are visible at 10 m resolution but sub-10 m tree rows are NOT — field teams confirm micro-siting.`, 'ESA WorldCover derived + SaniTap field validation'],
     ['Rows × spacing', `${uiCfg.rows} × ${uiCfg.spacingM} m`, MC.planting.density_formula_source],
     ['Seedlings per ha (computed)', fmt(seedlingsPerHa(uiCfg.rows, uiCfg.spacingM, params.planting.mature_canopy_diameter_m)), 'Seedling Density sheet formula'],
     ['Mature canopy diameter', `${params.planting.mature_canopy_diameter_m} m`, MC.planting.mature_canopy_diameter_m.source],

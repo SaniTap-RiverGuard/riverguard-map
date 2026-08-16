@@ -59,8 +59,10 @@ config = {
         "ha_per_km_single_side": {"value": cell(ass, "B6"), "source": "Assumptions!B6"},
         "density_seedlings_ha": {"value": cell(ass, "B17"), "source": "Assumptions!B17"},
         "mature_canopy_diameter_m": {"value": cell(ass, "B27"), "source": "Assumptions!B27"},
-        "default_rows": {"value": 5, "source": "Seedling Density sheet layout (5 rows across 20 m at 5 m spacing)"},
-        "default_spacing_m": {"value": 4.41, "source": "derived: 5 rows x 4.41 m spacing reproduces Assumptions!B17 = 500 seedlings/ha via the Seedling Density formula (note: the sheet's '5 m spacing' practical option gives 400/ha)"},
+        "default_rows": {"value": 1, "source": "TOOL DEFAULT (field decision 2026-08-16): farmers cultivate up to the river edge, so a single row at the bank lip barely invades farmland and is far easier to negotiate. Matches Seedling Density 1-row line: 400/ha at 25 m2 per clump, 200 seedlings/km. DIVERGES from the xlsx model (5 rows / 20 m / 500 per ha); multi-row remains selectable."},
+        "default_spacing_m": {"value": 5.0, "source": "Seedling Density sheet 1-row line (5 m spacing, 400/ha)"},
+        "default_strip_width_m": {"value": 5, "source": "TOOL DEFAULT (field decision 2026-08-16): single row's mature canopy width = 5 m -> 0.5 ha-equivalent per km per side. DIVERGES from xlsx Assumptions!B5 = 20 m; the financial model xlsx is unchanged."},
+        "cropland_plantable_share": {"value": 0.5, "source": "CALIBRATION ASSUMPTION (field decision 2026-08-16): terraced paddy is not reliably detectable from desk data (all four field-validation points were paddy; detectors scored them 0-100%), so ALL cropland is counted at this plantable share until farmer-participation data from the Efaho communities allows recalibration. Configurable in the app."},
         "density_formula": "seedlings_per_ha = rows * 10000 / ((canopy_d + (rows-1)*spacing) * spacing)",
         "density_formula_source": "Seedling Density sheet columns D,F,G (verified against all table rows)",
         "survival_rate": {"value": 0.70, "source": "project brief (NOT in xlsx)"}
