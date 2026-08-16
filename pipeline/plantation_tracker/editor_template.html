@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade Plantation AOI Editor</title>
+<link rel="stylesheet" href="../../../docs/vendor/leaflet.css">
+<link rel="stylesheet" href="../../../docs/vendor/leaflet-geoman.css">
+<style>
+  body { margin: 0; font: 14px/1.5 system-ui, sans-serif; display: flex; height: 100vh; }
+  #side { width: 320px; padding: 14px; overflow-y: auto; background: #f5f8f5; border-right: 1px solid #dde; }
+  #map { flex: 1; }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  .meta { font-size: 11.5px; color: #567; margin-bottom: 10px; }
+  ol { padding-left: 18px; font-size: 13px; }
+  li { margin: 6px 0; }
+  button { display: block; width: 100%; margin: 4px 0; padding: 8px; border-radius: 6px; border: 1px solid #bcc; cursor: pointer; background: #fff; font-size: 13px; }
+  button:hover { background: #eef4ee; }
+  button.mode-active { outline: 2px solid #333; }
+  #b-good { border-color: #1a9850; color: #1a9850; font-weight: 600; }
+  #b-poor { border-color: #c0392b; color: #c0392b; font-weight: 600; }
+  #b-export { background: #157a43; color: #fff; font-weight: 700; margin-top: 12px; }
+  .legend { font-size: 12px; margin: 8px 0; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+  #status { font-size: 12px; background: #fff; border: 1px solid #dde; border-radius: 6px; padding: 6px 8px; margin-top: 8px; min-height: 30px; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>Domaine de la Cascade — AOI editor</h1>
+  <p class="meta">Auto-delineation from Sentinel-2 __SCENE__ · candidate area __AUTO_HA__ ha (target ≈ 26 ha)</p>
+  <ol>
+    <li><b>Correct the blue plantation boundary</b>: click it, then drag vertices (add vertices by dragging edge midpoints; delete via right-click). Watch the <b>streamside edge</b> — the classifier likely confused plantation with natural riparian vegetation there. Use the layer switcher (top right) to flip between true colour and NDVI.</li>
+    <li><b>Mark the good-performance zone(s)</b> (~2–3 ha, mainly toward the stream): click <i>Draw GOOD zone</i>, click the corners, finish by clicking the first point again.</li>
+    <li><b>Mark 2+ poor-performance reference zones</b> ("fishing-rod" areas) with <i>Draw POOR zone</i>.</li>
+    <li>Click <b>Export corrected GeoJSON</b> and send me the downloaded file.</li>
+  </ol>
+  <button id="b-good">▶ Draw GOOD zone</button>
+  <button id="b-poor">▶ Draw POOR zone</button>
+  <button id="b-del">Delete a shape (click it)</button>
+  <button id="b-export">⬇ Export corrected GeoJSON</button>
+  <input type="file" id="b-import" accept=".geojson,.json" style="margin-top:8px; font-size:12px">
+  <div class="legend">
+    <span class="sw" style="background:#2166ac"></span>plantation boundary ·
+    <span class="sw" style="background:#1a9850"></span>good ·
+    <span class="sw" style="background:#c0392b"></span>poor
+  </div>
+  <div id="status">Ready. The auto-boundary is a first guess — trust your eyes over the classifier.</div>
+</div>
+<div id="map"></div>
+<script src="../../../docs/vendor/leaflet.js"></script>
+<script src="../../../docs/vendor/leaflet-geoman.min.js"></script>
+<script>
+const AUTO = __AUTO_GEOJSON__;
+const IMG_BOUNDS = __IMG_BOUNDS__;
+const map = L.map('map').setView(__CENTRE__, 15);
+const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 19, attribution: 'Esri'});
+const tc = L.imageOverlay('__TC_URI__', IMG_BOUNDS, {opacity: 1});
+const nd = L.imageOverlay('__NDVI_URI__', IMG_BOUNDS, {opacity: 0.85});
+esri.addTo(map); tc.addTo(map);
+L.control.layers({'Esri (fresh zoom)': esri}, {'Sentinel-2 true colour': tc, 'NDVI': nd}, {collapsed: false}).addTo(map);
+
+const STYLE = {
+  plantation: {color: '#2166ac', weight: 2.5, fillOpacity: 0.06},
+  good: {color: '#1a9850', weight: 2.5, fillOpacity: 0.2},
+  poor: {color: '#c0392b', weight: 2.5, fillOpacity: 0.2},
+};
+const shapes = [];
+function addFeature(f) {
+  const role = f.properties?.role || 'plantation';
+  const layer = L.geoJSON(f, {style: STYLE[role]}).getLayers()[0];
+  layer._role = role;
+  layer.addTo(map);
+  layer.pm.enable({allowSelfIntersection: false});
+  shapes.push(layer);
+  return layer;
+}
+AUTO.features.forEach(addFeature);
+
+let drawRole = null;
+const status = t => document.getElementById('status').textContent = t;
+function setMode(role, btn) {
+  drawRole = role;
+  document.querySelectorAll('button').forEach(b => b.classList.remove('mode-active'));
+  if (role) { btn.classList.add('mode-active');
+    map.pm.enableDraw('Polygon', {pathOptions: STYLE[role], allowSelfIntersection: false});
+    status(`Drawing ${role.toUpperCase()} zone — click corners, close by clicking the first point.`);
+  } else { map.pm.disableDraw(); }
+}
+document.getElementById('b-good').onclick = e => setMode('good', e.target);
+document.getElementById('b-poor').onclick = e => setMode('poor', e.target);
+map.on('pm:create', e => {
+  e.layer._role = drawRole || 'plantation';
+  e.layer.setStyle(STYLE[e.layer._role]);
+  e.layer.pm.enable({allowSelfIntersection: false});
+  shapes.push(e.layer);
+  setMode(null); status(`${e.layer._role} zone added. ${shapes.length} shapes total.`);
+});
+document.getElementById('b-del').onclick = () => {
+  status('Click a shape to delete it.');
+  const h = ev => { map.removeLayer(ev.target); shapes.splice(shapes.indexOf(ev.target), 1);
+    shapes.forEach(s => s.off('click', h)); status('Deleted.'); };
+  shapes.forEach(s => s.once('click', h));
+};
+document.getElementById('b-export').onclick = () => {
+  const fc = {type: 'FeatureCollection',
+    _note: 'Corrected by hand in aoi_editor.html; roles: plantation | good | poor',
+    features: shapes.filter(s => map.hasLayer(s)).map(s => {
+      const gj = s.toGeoJSON();
+      gj.properties = {role: s._role};
+      return gj;
+    })};
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(fc, null, 1)], {type: 'application/geo+json'}));
+  a.download = 'plantation_zones_corrected.geojson';
+  a.click();
+  status('Exported plantation_zones_corrected.geojson — send me that file.');
+};
+document.getElementById('b-import').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const gj = JSON.parse(await f.text());
+  shapes.slice().forEach(s => map.removeLayer(s)); shapes.length = 0;
+  gj.features.forEach(addFeature);
+  status(`Loaded ${gj.features.length} shapes from ${f.name}.`);
+};
+</script>
+</body>
+</html>
