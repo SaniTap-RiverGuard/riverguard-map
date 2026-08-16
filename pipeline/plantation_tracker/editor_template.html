@@ -35,6 +35,11 @@
     <li><b>Mark 2+ poor-performance reference zones</b> ("fishing-rod" areas) with <i>Draw POOR zone</i>.</li>
     <li>Click <b>Export corrected GeoJSON</b> and send me the downloaded file.</li>
   </ol>
+  <p style="font-size:12px; background:#fff6e0; border:1px solid #e8d9a8; border-radius:6px; padding:6px 8px">
+  <b>Don't over-perfect the polygon:</b> the analysis pixels are Sentinel-2 10 m regardless of
+  the digitising backdrop, so boundary precision beyond ~10 m won't change the time-series result.</p>
+  <label style="font-size:12px">Sentinel-2 overlay opacity
+    <input type="range" id="s2-opacity" min="0" max="100" value="80" style="width:100%"></label>
   <button id="b-good">▶ Draw GOOD zone</button>
   <button id="b-poor">▶ Draw POOR zone</button>
   <button id="b-del">Delete a shape (click it)</button>
@@ -53,12 +58,36 @@
 <script>
 const AUTO = __AUTO_GEOJSON__;
 const IMG_BOUNDS = __IMG_BOUNDS__;
-const map = L.map('map').setView(__CENTRE__, 15);
-const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 19, attribution: 'Esri'});
-const tc = L.imageOverlay('__TC_URI__', IMG_BOUNDS, {opacity: 1});
-const nd = L.imageOverlay('__NDVI_URI__', IMG_BOUNDS, {opacity: 0.85});
-esri.addTo(map); tc.addTo(map);
-L.control.layers({'Esri (fresh zoom)': esri}, {'Sentinel-2 true colour': tc, 'NDVI': nd}, {collapsed: false}).addTo(map);
+const map = L.map("map", {maxZoom: 21}).setView(__CENTRE__, 16);
+window._aoimap = map;
+/* Esri native detail ends at z17 over this area (z18+ tiles are blanks) —
+ * maxNativeZoom keeps Leaflet upscaling real z17 imagery instead of
+ * requesting placeholders. Bing Aerial serves genuine tiles to z19 here. */
+const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxNativeZoom: 17, maxZoom: 21, attribution: 'Esri'});
+const BingLayer = L.TileLayer.extend({
+  getTileUrl(c) {
+    const z = this._getZoomForUrl();
+    let qk = '';
+    for (let i = z; i > 0; i--) {
+      let d = 0, m = 1 << (i - 1);
+      if (c.x & m) d += 1;
+      if (c.y & m) d += 2;
+      qk += d;
+    }
+    return `https://ecn.t${(c.x + c.y) % 4}.tiles.virtualearth.net/tiles/a${qk}.jpeg?g=1`;
+  },
+});
+const bing = new BingLayer('', {maxNativeZoom: 19, maxZoom: 21, attribution: 'Microsoft Bing'});
+const tc = L.imageOverlay('__TC_URI__', IMG_BOUNDS, {opacity: 0.8});
+const nd = L.imageOverlay('__NDVI_URI__', IMG_BOUNDS, {opacity: 0.8});
+esri.addTo(map);
+L.control.layers({'Esri World Imagery (native to z17)': esri, 'Bing Aerial (native to z19 — sharpest)': bing},
+  {'Sentinel-2 true colour (what the classifier saw)': tc, 'NDVI': nd}, {collapsed: false}).addTo(map);
+document.getElementById('s2-opacity').addEventListener('input', e => {
+  const v = +e.target.value / 100;
+  tc.setOpacity(v); nd.setOpacity(v);
+});
 
 const STYLE = {
   plantation: {color: '#2166ac', weight: 2.5, fillOpacity: 0.06},
