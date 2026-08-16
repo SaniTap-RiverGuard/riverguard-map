@@ -143,12 +143,13 @@ export function buildSelection(params, segs, polys, cfg) {
   for (const p of segs) {
     const km = p.L / 1000;
     bankKm += km;
-    let ha = km * cfg.stripWidthM / 10; // 20 m -> 2 ha/km (Assumptions!B6), single side
-    /* Optional heuristic: likely-paddy (p.up, fraction of buffer) is not
-     * plantable; scale area by the paddy share of the plantable fraction. */
-    if (cfg.subtractPaddy && p.up > 0 && p.lf > 0) {
-      ha *= Math.max(0, 1 - p.up / p.lf);
-    }
+    /* Effective plantable area (VM0047 — no displacement of existing trees):
+     * raw strip area × the buffer's plantable fraction (candidate classes only;
+     * tree cover, built-up, water, wetland are never counted), minus the
+     * likely-paddy share when that heuristic is enabled. Cover fractions are
+     * measured over the 100 m sampling buffer and applied to the strip. */
+    const plantable = Math.max(0, (p.lf ?? 1) - (cfg.subtractPaddy ? (p.up ?? 0) : 0));
+    const ha = km * cfg.stripWidthM / 10 * plantable;
     segAreaHa += ha;
     const seedlings = ha * perHa * cfg.survival;
     const mix = cfg.mixMode === 'recommended'

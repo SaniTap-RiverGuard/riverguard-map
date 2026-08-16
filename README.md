@@ -131,9 +131,13 @@ suitability, **never** part of the score (asserted in code):
    nearest ≥100 ha block of ≥50 % tree cover — fuelwood-substitution and
    pressure-relief value.
 3. **Access**: road-adjacent (OSM road ≤250 m), boat-reachable (downstream of
-   an access point until river-line gradient >1.5 % — a rapids proxy — or the
-   semi-arid boundary), else remote. *Desk heuristic: DEM noise, dams and
-   weirs are not modelled; needs local confirmation.*
+   an access point until a rapids barrier — the SUSTAINED river-line gradient,
+   hydrologically conditioned so water only flows downhill and DEM noise over
+   wide channels cannot fake slope, averaged over ~1.5 km, exceeds 1.5 %), else
+   remote. A downstream-propagation invariant is asserted on every pipeline
+   run. *Desk heuristic: dams and weirs are not modelled; needs local
+   confirmation.* `07_roads_overlay.py` exports the roads used (main roads +
+   tracks within 1 km of rivers) and the access points as app overlays.
 4. **Land use & fire**: WorldCover composition per buffer; likely-paddy
    heuristic (cropland, slope <2°, buffer touches water/wetland) as a
    toggleable area deduction; FIRMS fire detections per decade within 1 km.
@@ -178,6 +182,12 @@ Drop the new calculator in `data/`, then:
 The script asserts the sheet layout (Assumptions / Seedling Density / Biomass /
 Eq30) and cross-checks the year-20 headline numbers; it fails loudly if the
 layout moved. Commit the regenerated `docs/data/model_config.json`.
+
+**Effective plantable area (fixed 2026-08-16):** all hectare, seedling, CO₂e
+and revenue figures use `strip area × plantable fraction` per segment
+(WorldCover candidate classes only — tree cover, built-up, water and wetland
+are never planted over, per VM0047's no-displacement rule), minus likely-paddy
+when that toggle is on. Coast-wide this is ~70 % of raw strip area.
 
 ## Web app
 

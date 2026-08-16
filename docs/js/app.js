@@ -160,15 +160,26 @@ function initInputs() {
   const LEGENDS = {
     suit: 'green high · amber medium · grey low · pale excluded',
     access: 'green road-adjacent · blue boat-reachable · grey remote',
-    pop: 'darker blue = more people within 5 km (breaks: 200 / 1k / 3k / 10k)',
-    cyclone: 'darker red = more cyclone passages within 100 km since 1986 (1/3/5/8)',
+    pop: 'people within 5 km: <1.5k · 1.5–3k · 3–5k · 5–8k · >8k (light→dark blue, quintiles)',
+    cyclone: 'passages/40 yr: <13 · 13–15 · 15–17 · 17–20 · ≥20 (light→dark red) · darkest = high-exposure flag (top quartile AND cat-4/5)',
     cold: 'purple = cold-marginal (BIO6 < 10 °C) · green = not flagged',
   };
-  $('overlay-mode').addEventListener('change', () => {
-    map.setOverlay($('overlay-mode').value);
-    $('overlay-legend').textContent = LEGENDS[$('overlay-mode').value];
-  });
-  $('overlay-legend').textContent = LEGENDS.suit;
+  const setOverlayMode = mode => {
+    $('overlay-mode').value = mode;
+    map.setOverlay(mode);
+    $('overlay-legend').textContent = LEGENDS[mode];
+    for (const b of document.querySelectorAll('.paint'))
+      b.classList.toggle('active', b.dataset.overlay === mode);
+  };
+  $('overlay-mode').addEventListener('change', () => setOverlayMode($('overlay-mode').value));
+  for (const btn of document.querySelectorAll('.paint')) {
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();   // don't toggle the criterion checkbox
+      setOverlayMode(btn.dataset.overlay);
+    });
+  }
+  setOverlayMode('suit');
+  $('roads-toggle').addEventListener('change', () => map.toggleRoads($('roads-toggle').checked));
 
   initFilterControls();
 
@@ -297,12 +308,15 @@ function countActive(s) {
 }
 
 function matchStats(pred) {
-  let n = 0, km = 0;
+  let n = 0, km = 0, ha = 0;
   for (const f of map.features) {
     const p = f.properties;
-    if (p.c !== 'e' && pred(p)) { n++; km += p.L / 1000; }
+    if (p.c !== 'e' && pred(p)) {
+      n++; km += p.L / 1000;
+      ha += p.L / 1000 * uiCfg.stripWidthM / 10 * (p.lf ?? 1); // effective plantable ha
+    }
   }
-  return { n, km, ha: km * uiCfg.stripWidthM / 10 };
+  return { n, km, ha };
 }
 
 function applyFilters() {
@@ -779,6 +793,7 @@ function assumptionsHtml() {
   const d = params.carbon.deductions;
   const rows = [
     ['Riparian strip width', `${uiCfg.stripWidthM} m`, MC.planting.strip_width_m.source],
+    ['Effective plantable area', 'strip area × plantable fraction of the buffer (WorldCover candidate classes — tree cover, built-up, water, wetland never counted; VM0047 forbids displacing existing trees), minus likely-paddy when enabled. Narrow gallery-forest lines are visible at 10 m resolution but sub-10 m tree rows are NOT — field teams confirm micro-siting.', 'ESA WorldCover derived (fixed 2026-08-16)'],
     ['Rows × spacing', `${uiCfg.rows} × ${uiCfg.spacingM} m`, MC.planting.density_formula_source],
     ['Seedlings per ha (computed)', fmt(seedlingsPerHa(uiCfg.rows, uiCfg.spacingM, params.planting.mature_canopy_diameter_m)), 'Seedling Density sheet formula'],
     ['Mature canopy diameter', `${params.planting.mature_canopy_diameter_m} m`, MC.planting.mature_canopy_diameter_m.source],

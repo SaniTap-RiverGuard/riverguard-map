@@ -78,14 +78,18 @@ export class SuitabilityMap {
       case 'access':
         return { r: '#1a9850', b: '#2166ac', x: '#8c8c8c' }[p.ac] || '#8c8c8c';
       case 'pop': {
+        // quintile breaks of the actual distribution (recalibrated 2026-08-16)
         const v = p.p5 || 0;
-        return v >= 10000 ? '#08519c' : v >= 3000 ? '#3182bd' : v >= 1000 ? '#6baed6'
-          : v >= 200 ? '#bdd7e7' : '#e6eef4';
+        return v >= 8000 ? '#08519c' : v >= 5000 ? '#3182bd' : v >= 3000 ? '#6baed6'
+          : v >= 1500 ? '#bdd7e7' : '#eff3ff';
       }
       case 'cyclone': {
+        // percentile breaks (p25/50/75/90 = 13/15/17/20); the AND-flag gets its
+        // own darkest step. Old ramp (1/3/5/8) saturated the whole coast.
+        if (p.cf) return '#67000d';
         const n = p.cn || 0;
-        return n >= 8 ? '#67000d' : n >= 5 ? '#cb181d' : n >= 3 ? '#fb6a4a'
-          : n >= 1 ? '#fcae91' : '#e0d8d3';
+        return n >= 20 ? '#a50f15' : n >= 17 ? '#de2d26' : n >= 15 ? '#fb6a4a'
+          : n >= 13 ? '#fcae91' : '#fee5d9';
       }
       case 'cold':
         return p.cm ? '#6a51a3' : '#b8ceb8';
@@ -236,6 +240,60 @@ export class SuitabilityMap {
   }
 
   flyTo(lat, lon, zoom = 12) { this.map.flyTo([lat, lon], zoom, { duration: 1.2 }); }
+
+  /* Roads + access-point overlay: lazy-loads its GeoJSON on first toggle.
+   * Thin lines by class; small cyan dots at river-road access points. */
+  async toggleRoads(on) {
+    this.roadsOn = on;
+    if (!on) {
+      for (const l of [this.roadsLayer, this.accessLayer, this.minorRoadsLayer])
+        if (l) this.map.removeLayer(l);
+      return;
+    }
+    const ROAD_STYLE = {
+      t: { color: '#ffd24d', weight: 2.4 }, p: { color: '#ffd24d', weight: 2 },
+      s: { color: '#ffb14d', weight: 1.6 }, y: { color: '#ffe9b3', weight: 1.2 },
+      u: { color: '#e8e3d5', weight: 0.9 }, k: { color: '#cfc7b2', weight: 0.7, dashArray: '3 3' },
+    };
+    if (!this.roadsLayer) {
+      const [roads, pts] = await Promise.all([
+        fetch('data/roads.geojson').then(r => r.json()),
+        fetch('data/access_points.geojson').then(r => r.json()),
+      ]);
+      this.roadsLayer = L.geoJSON(roads, {
+        renderer: this.renderer,
+        style: f => ({ opacity: 0.85, ...ROAD_STYLE[f.properties.c] }),
+        interactive: false,
+      });
+      this.accessLayer = L.geoJSON(pts, {
+        pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+          renderer: this.renderer, radius: 2.5, color: '#00e5ff', weight: 1,
+          fillColor: '#00e5ff', fillOpacity: 0.7, interactive: false,
+        }),
+      });
+      // tracks/unclassified near rivers: lazy-loaded, shown only at zoom >= 10
+      this._roadStyle = ROAD_STYLE;
+      this.map.on('zoomend', () => this._syncMinorRoads());
+    }
+    this.roadsLayer.addTo(this.map);
+    this.accessLayer.addTo(this.map);
+    this._syncMinorRoads();
+  }
+
+  async _syncMinorRoads() {
+    const want = this.roadsOn && this.map.getZoom() >= 10;
+    if (want && !this.minorRoadsLayer) {
+      const minor = await fetch('data/roads_minor.geojson').then(r => r.json());
+      this.minorRoadsLayer = L.geoJSON(minor, {
+        renderer: this.renderer,
+        style: f => ({ opacity: 0.8, ...this._roadStyle[f.properties.c] }),
+        interactive: false,
+      });
+    }
+    if (!this.minorRoadsLayer) return;
+    if (want) this.minorRoadsLayer.addTo(this.map);
+    else this.map.removeLayer(this.minorRoadsLayer);
+  }
 }
 
 function midpoint(f) {

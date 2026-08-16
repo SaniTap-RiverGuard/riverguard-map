@@ -200,6 +200,12 @@ button.info {
   font: italic 700 10px/1 Georgia, serif; padding: 0; vertical-align: 1px;
 }
 button.info:hover { background: var(--accent); color: #fff; }
+button.paint {
+  border: 1px solid #cdd8cf; background: #fff; border-radius: 4px; cursor: pointer;
+  font-size: 10px; padding: 1px 4px; line-height: 1.2; flex: 0 0 auto; margin-left: 2px;
+}
+button.paint:hover { background: #e8f1eb; }
+button.paint.active { background: var(--accent); border-color: var(--accent); }
 #tooltip {
   position: fixed; z-index: 5000; max-width: 250px; background: #16281d; color: #eef5f0;
   font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 8px;

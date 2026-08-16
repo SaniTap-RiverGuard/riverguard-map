@@ -185,7 +185,7 @@ def layer_access():
         road_adj[i] = any(g.distance(roads.geometry.values[j]) <= snap for j in cand)
     print(f"  {road_adj.sum()} road-adjacent segments")
 
-    print("  river line gradient from DEM...")
+    print("  endpoint elevations from DEM...")
     dem_paths = sorted((RAW / "glo30").glob("*.tif"))
     dems = [rasterio.open(p) for p in dem_paths]
     bounds = [d.bounds for d in dems]
@@ -198,12 +198,11 @@ def layer_access():
         return np.nan
 
     lines_wgs = segs.geometry.values
-    grad = np.zeros(len(segs))
+    e_start = np.full(len(segs), np.nan)
+    e_end = np.full(len(segs), np.nan)
     for i, line in enumerate(lines_wgs):
         p0, p1 = line.coords[0], line.coords[-1]
-        e0, e1 = elev_at(*p0[:2]), elev_at(*p1[:2])
-        L = segs["length_m"].iloc[i]
-        grad[i] = abs(e0 - e1) / L * 100 if (L > 0 and np.isfinite(e0) and np.isfinite(e1)) else 0.0
+        e_start[i], e_end[i] = elev_at(*p0[:2]), elev_at(*p1[:2])
     for d in dems:
         d.close()
 
@@ -237,7 +236,51 @@ def layer_access():
         if nd and nd in reach_first:
             succ[reach_last[r]] = reach_first[nd]
 
-    barrier = (grad > cfga["rapids_gradient_pct"]) | (segs["excl"].values == "semi-arid")
+    # RIVER GRADIENT, hydrologically conditioned (fix 2026-08-16): the earlier
+    # abs(e0-e1)/L on raw DSM samples turned radar noise over wide water into
+    # phantom slope (order-6 main stems read a median 1.9 % "gradient"). Water
+    # only flows downhill: walk the flow graph in topological order carrying a
+    # running-minimum elevation; the gradient comes from CONDITIONED drops, so
+    # noise bumps vanish and genuine falls remain.
+    from collections import deque
+    n = len(segs)
+    indeg = np.zeros(n, int)
+    for j in succ:
+        if j >= 0:
+            indeg[j] += 1
+    carry = np.full(n, np.inf)
+    grad = np.zeros(n)
+    topo_q = deque(i for i in range(n) if indeg[i] == 0)
+    seg_len = segs["length_m"].values
+    while topo_q:
+        i = topo_q.popleft()
+        s = e_start[i] if np.isfinite(e_start[i]) else np.inf
+        s = min(carry[i], s)
+        t = min(s, e_end[i]) if np.isfinite(e_end[i]) else s
+        if np.isfinite(s) and np.isfinite(t) and seg_len[i] > 0:
+            grad[i] = max(0.0, s - t) / seg_len[i] * 100
+        j = succ[i]
+        if j >= 0:
+            carry[j] = min(carry[j], t)
+            indeg[j] -= 1
+            if indeg[j] == 0:
+                topo_q.append(j)
+
+    # SUSTAINED barrier: mean conditioned gradient over a 3-segment (~1.5 km)
+    # window along the chain must exceed the threshold.
+    pred = np.full(n, -1)
+    for i, j in enumerate(succ):
+        if j >= 0:
+            pred[j] = i
+    grad_smooth = grad.copy()
+    for i in range(n):
+        vals = [grad[i]]
+        if pred[i] >= 0:
+            vals.append(grad[pred[i]])
+        if succ[i] >= 0:
+            vals.append(grad[succ[i]])
+        grad_smooth[i] = np.mean(vals)
+    barrier = (grad_smooth > cfga["rapids_gradient_pct"]) | (segs["excl"].values == "semi-arid")
     boat = np.zeros(len(segs), bool)
     dist_km = np.full(len(segs), np.inf)
     from collections import deque
@@ -265,6 +308,16 @@ def layer_access():
             dist_km[i] = Point(mx[i], my[i]).distance(Point(mx[acc_idx[j]], my[acc_idx[j]])) / 1000
     cls = np.where(road_adj, "road", np.where(boat, "boat", "remote"))
     print(f"  access classes: road {road_adj.sum()}, boat {boat.sum()}, remote {(cls=='remote').sum()}")
+
+    # PERMANENT INVARIANT (agreed 2026-08-16, like the Efaho gate): reachability
+    # propagates downstream — no boat/road segment may have a remote downstream
+    # neighbour without a barrier between them.
+    viol = sum(1 for i in range(len(segs))
+               if cls[i] in ("road", "boat") and succ[i] >= 0
+               and not barrier[succ[i]] and cls[succ[i]] == "remote")
+    if viol:
+        raise AssertionError(f"BOAT-REACHABILITY INVARIANT VIOLATED: {viol} segments — do not ship")
+    print(f"  invariant check: 0 violations (downstream reachability propagates)")
     out = pd.DataFrame({"access": cls, "access_km": np.round(np.where(np.isfinite(dist_km), dist_km, -1), 1),
                         "riv_grad": np.round(grad, 2)}, index=segs.index)
     out.to_parquet(cache)

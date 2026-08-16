@@ -130,7 +130,7 @@
       "road_classes": ["trunk", "primary", "secondary", "tertiary", "unclassified", "track"],
       "road_snap_m": 250,
       "rapids_gradient_pct": 1.5,
-      "_comment": "Access point = road within road_snap_m of a segment. Boat reachability: downstream traversal from access points, broken where the river LINE gradient (DEM drop / segment length) exceeds rapids_gradient_pct sustained, or at excluded/semi-arid segments. DESK HEURISTIC: DEM noise, dams and weirs are not captured; requires local confirmation."
+      "_comment": "Access point = road within road_snap_m of a segment. Boat reachability: downstream traversal from access points, broken where the SUSTAINED river-line gradient — mean over a 3-segment (~1.5 km) window along the chain — exceeds rapids_gradient_pct, or at semi-arid-excluded segments. (Fixed 2026-08-16: single-segment gradient let DEM noise throw false barriers.) DESK HEURISTIC: dams and weirs are not captured; requires local confirmation. A downstream-propagation invariant is asserted on every run."
     },
     "landuse_fire": {
       "paddy_slope_max_deg": 2.0,
