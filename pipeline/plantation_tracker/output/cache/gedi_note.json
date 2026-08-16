@@ -1,0 +1,1 @@
+{"granules_intersecting_bbox": 16, "note": "Granule METADATA only \u2014 GEDI L2A footprint data requires NASA Earthdata authentication; granules are whole orbits, so intersection does not guarantee footprints on the 18 ha AOI. Time-boxed per instruction."}

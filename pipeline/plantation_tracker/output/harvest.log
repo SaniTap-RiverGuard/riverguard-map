@@ -1,0 +1,30 @@
+strata px @10m: {'good': 55, 'poor': 1755, 'whole': 1810}
+GEDI: 16 L2A granules intersect the bbox (metadata only; download needs Earthdata auth)
+S2: 115 monthly scenes
+  S2 0/115 2017-01-11 ndvi good=0.80 poor=0.68
+  S2 10/115 2017-11-07 ndvi good=0.74 poor=0.63
+  S2 20/115 2018-09-18 ndvi good=0.71 poor=0.57
+  S2 30/115 2019-07-20 ndvi good=0.87 poor=0.82
+  S2 40/115 2020-05-15 ndvi good=0.87 poor=0.85
+  S2 50/115 2021-03-16 ndvi good=0.82 poor=0.79
+  S2 60/115 2022-01-30 ndvi good=0.83 poor=0.77
+  S2 70/115 2022-11-26 ndvi good=0.73 poor=0.55
+  S2 80/115 2023-10-22 ndvi good=0.74 poor=0.69
+  S2 90/115 2024-08-12 ndvi good=0.82 poor=0.76
+  S2 100/115 2025-06-18 ndvi good=0.88 poor=0.83
+  S2 110/115 2026-04-19 ndvi good=0.80 poor=0.81
+S2 done: 111 usable scenes
+Landsat: 75 monthly scenes
+Landsat done: 0 usable scenes
+S1 RTC: 134 monthly scenes
+  S1 0/134 2015-03-29 vh good=-14.9 poor=-15.4 dB
+  S1 15/134 2016-08-14 vh good=-13.1 poor=-14.8 dB
+  S1 30/134 2017-12-31 vh good=-13.8 poor=-13.0 dB
+  S1 45/134 2019-03-31 vh good=-15.7 poor=-15.0 dB
+  S1 60/134 2020-06-30 vh good=-15.0 poor=-13.8 dB
+  S1 75/134 2021-09-29 vh good=-14.6 poor=-14.8 dB
+  S1 90/134 2023-01-22 vh good=-13.0 poor=-13.2 dB
+  S1 105/134 2024-04-22 vh good=-14.9 poor=-14.9 dB
+  S1 120/134 2025-07-22 vh good=-13.5 poor=-14.3 dB
+S1 done: 134 usable scenes
+ALL SOURCES DONE

@@ -1,0 +1,16 @@
+strata px @10m: {'good': 55, 'poor': 1755, 'whole': 1810}
+GEDI: 16 L2A granules intersect the bbox (metadata only; download needs Earthdata auth)
+S2: 115 monthly scenes
+S2 done: 111 usable scenes
+Landsat: 75 monthly scenes
+  LS 0/75 2009-02-23 landsat-7 good=0.71 poor=0.69
+  LS 10/75 2010-04-15 landsat-7 good=0.69 poor=0.73
+  LS 30/75 2012-07-09 landsat-7 good=0.68 poor=0.63
+  LS 40/75 2013-08-13 landsat-7 good=nan poor=0.63
+  LS 50/75 2014-06-05 landsat-8 good=0.62 poor=0.69
+  LS 60/75 2015-04-05 landsat-8 good=0.82 poor=0.74
+  LS 70/75 2016-02-27 landsat-7 good=0.77 poor=0.69
+Landsat done: 65 usable scenes
+S1 RTC: 134 monthly scenes
+S1 done: 134 usable scenes
+ALL SOURCES DONE
