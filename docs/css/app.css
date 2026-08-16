@@ -126,6 +126,19 @@ body.presenting #main { height: 100%; }
 body.presenting #present-title { display: block; }
 body.presenting .counter .val { font-size: 30px; }
 body.presenting .counter .lab { font-size: 12px; }
+/* presentation stat order: km bank -> net tCO2e -> revenue/NPV -> effective area */
+body.presenting #c-bank { order: 1; }
+body.presenting #c-net { order: 2; }
+body.presenting #c-revenue { order: 3; }
+body.presenting #c-npv { order: 4; }
+body.presenting #c-area { order: 5; }
+body.presenting #c-tbkm { order: 6; }
+body.presenting #c-seedlings { order: 7; }
+body.presenting #btn-chart-toggle { order: 8; margin-left: auto; }
+.counter .sub { display: none; }
+body.presenting .counter .sub {
+  display: block; font-size: 9.5px; color: #7d8c83; max-width: 150px; line-height: 1.25; margin-top: 2px;
+}
 body.presenting #year-control { padding: 14px 18px; }
 body.presenting #year-label { font-size: 20px; }
 #btn-present-exit {
