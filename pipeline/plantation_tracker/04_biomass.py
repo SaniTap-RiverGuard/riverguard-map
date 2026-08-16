@@ -12,7 +12,7 @@ structure-sensitive consistency check (C-band saturates ~50-100 t/ha AGB).
 
 Also renders the boundary-discrepancy figure: spectrally similar blocks near
 but OUTSIDE the corrected 18.1 ha boundary (candidate missed plantation area
-vs the historically quoted ~26 ha).
+vs the leased parcel of 20.97 ha).
 """
 import json
 from pathlib import Path
@@ -90,9 +90,9 @@ if annual is not None:
         ax.plot(xs, ys, color=c_, lw=lw)
     ax.set_xlim(20, 220); ax.set_ylim(220, 20)
     ax.set_xticks([]); ax.set_yticks([])
-    ax.set_title(f"Boundary check: corrected 18.1 ha (blue) vs historically quoted ~26 ha\n"
-                 f"orange = spectrally similar candidate blocks outside the boundary "
-                 f"({cand_ha:.1f} ha within 400 m)")
+    ax.set_title(f"Boundary check: mapped bamboo canopy 18.13 ha (blue) within the leased parcel of 20.97 ha\n"
+                 f"orange = spectrally similar blocks outside the mapped boundary "
+                 f"({cand_ha:.1f} ha within 400 m — mostly natural vegetation; NDVI alone cannot tell)")
     fig.tight_layout()
     fig.savefig(FIGS / "fig7_boundary_check.png", dpi=140)
     print(f"boundary check: {cand_ha:.1f} ha of candidate blocks outside boundary; {len(blocks)} blocks")

@@ -1,7 +1,7 @@
 # Plantation growth tracker — Domaine de la Cascade (Anosy)
 
 Historical growth analysis of SaniTap's existing Bambusa balcooa plantation
-(~-24.9940, 46.9120, ~26 ha, phased establishment from ~2010). Separate from
+(~-24.9940, 46.9120, leased parcel 20.97 ha, phased establishment from ~2010). Separate from
 the public suitability map.
 
 Three questions:
@@ -21,7 +21,7 @@ then emits `output/aoi_editor.html` — an interactive page for correcting the
 boundary and marking good/poor performance zones. Export produces
 `plantation_zones_corrected.geojson` (roles: plantation | good | poor).
 
-Auto-result: 16.4 ha candidate vs ~26 ha expected — the sparse-canopy poor
+Auto-result: 16.4 ha candidate vs 20.97 ha leased (18.13 ha mapped after correction) — the sparse-canopy poor
 zones likely fall outside the spectral component; correct by hand.
 
 **Waiting on the corrected GeoJSON before Step 2** (time series: S2 2015–2026,

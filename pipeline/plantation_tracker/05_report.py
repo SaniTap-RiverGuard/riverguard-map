@@ -20,6 +20,21 @@ def img(name):
 
 
 g = bio["biomass"]["good"]; p = bio["biomass"]["poor"]; w = bio["biomass"]["whole"]
+
+# Canonical areas (per AM 2026-08-16; informal "26 ha" figure retired):
+LEASED_HA = 20.97          # géomètre survey Oct 2018, FLM lease
+RENT_HA_YR = 200.0         # USD/ha/yr
+RENT_YR = LEASED_HA * RENT_HA_YR
+UNPLANTED_HA = round(LEASED_HA - bio["areas_ha"]["whole"], 2)
+
+def rent_per_t(stratum_key, area_ha):
+    lo, hi = bio["biomass"][stratum_key]["t_dry_total"]
+    rent = area_ha * RENT_HA_YR
+    return rent, (round(rent / hi, 1), round(rent / lo, 1))
+
+rent_good, rpt_good = rent_per_t("good", bio["areas_ha"]["good"])
+rent_poor, rpt_poor = rent_per_t("poor", bio["areas_ha"]["poor"])
+rpt_whole = (round(RENT_YR / w["t_dry_total"][1], 1), round(RENT_YR / w["t_dry_total"][0], 1))
 model = bio["model_reference"]
 model_whole = [round(model["clump_kg_yr15"] * d / 1000 * bio["areas_ha"]["whole"]) for d in (400, 500)]
 sep_recent = [r for r in sep if 2016 <= r["year"] <= 2025]
@@ -49,7 +64,10 @@ html = f"""<!DOCTYPE html>
 <h1>Cascade Plantation Growth History</h1>
 <p class="lede">Domaine de la Cascade, Anosy (−24.994, 46.912). 176 usable satellite scenes
 2009–2026 (65 Landsat, 111 Sentinel-2) plus 134 Sentinel-1 radar passes, analysed per performance
-stratum: the mapped <b>good zone (0.56 ha)</b> vs the <b>poor remainder (17.6 ha)</b>.</p>
+stratum. Three area figures are used consistently throughout: <b>leased parcel 20.97 ha</b>
+(legal — géomètre survey Oct 2018, FLM lease at $200/ha/yr), <b>mapped bamboo canopy 18.13 ha</b>
+(the corrected polygon = analysis AOI), <b>good zone 0.56 ha</b>. The informal "26 ha" figure is
+retired.</p>
 
 <div class="find"><b>The three questions, answered:</b><br>
 <b>1. Can satellites reconstruct the growth history?</b> Yes — a continuous 17-year record
@@ -69,13 +87,15 @@ of the modelled year-15 biomass</b>; the model curve describes a good site (like
 selection is not a refinement of the project — it is the difference between the model being
 right and wrong.</div>
 
-<div class="warn"><b>Boundary discrepancy — needs your decision.</b> The corrected boundary is
-<b>18.1 ha</b> against the historically quoted ~26 ha. Fig 7 shows spectrally similar blocks
-outside the boundary (orange). Caveat: NDVI similarity alone cannot tell plantation from natural
-woodland, and most of the 84.6 ha of "compatible" area east of the site is clearly natural
-vegetation. The blocks worth checking against high-res imagery are the ones hugging the
-boundary: NE corner (~1.5–2.4 ha) and the southern lobes (~0.5–1 ha each). If any are yours,
-re-run the editor and I'll update every figure.</div>
+<div class="warn"><b>Area reconciliation.</b> Mapped bamboo canopy (18.13 ha) sits
+<b>{UNPLANTED_HA} ha short of the leased parcel (20.97 ha)</b> — most plausibly unplanted or
+failed ground inside the lease (tracks, edges, wet patches), which still carries
+<b>${UNPLANTED_HA * RENT_HA_YR:,.0f}/yr of rent with zero biomass</b>. Fig 7 shows spectrally
+similar blocks outside the mapped boundary (orange); NDVI similarity alone cannot tell
+plantation from natural woodland, and most of it clearly is natural vegetation — but the
+blocks hugging the boundary (NE corner ~1.5–2.4 ha, southern lobes ~0.5–1 ha) are worth an
+eye against high-res imagery, not least to check where the surveyed parcel lines actually run.
+If any are planted ground, re-run the editor and I'll update every figure.</div>
 
 <h2>1 · NDVI history by stratum</h2>{img("fig1_ndvi_series.png")}
 <p>Both strata start near 0.60–0.65 under Landsat (30 m), rise through 2014–2017, and plateau
@@ -126,6 +146,22 @@ strongly separable; single pixels are not a reliable per-clump verdict.</p>
 <td>vs <b>{model_whole[0]:,}–{model_whole[1]:,} t</b> if fully as modelled</td></tr>
 </table>
 {img("fig8_biomass.png")}
+<p><b>Rent economics</b> (for the cost-coverage discussion with Lucas — lease
+${RENT_HA_YR:.0f}/ha/yr on the surveyed 20.97 ha = <b>${RENT_YR:,.0f}/yr</b>):</p>
+<table>
+<tr><th>Stratum</th><th>Rent share/yr</th><th>Standing dry biomass</th><th>Rent per t dry standing</th></tr>
+<tr><td>Good zone (0.56 ha)</td><td>${rent_good:,.0f}</td><td>{g['t_dry_total'][0]}–{g['t_dry_total'][1]} t</td>
+<td><b>${rpt_good[0]}–{rpt_good[1]}/t/yr</b></td></tr>
+<tr><td>Poor stratum (17.57 ha)</td><td>${rent_poor:,.0f}</td><td>{p['t_dry_total'][0]}–{p['t_dry_total'][1]} t</td>
+<td><b>${rpt_poor[0]}–{rpt_poor[1]}/t/yr</b></td></tr>
+<tr><td>Unplanted lease remainder ({UNPLANTED_HA} ha)</td><td>${UNPLANTED_HA * RENT_HA_YR:,.0f}</td><td>≈ 0</td><td>—</td></tr>
+<tr><td><b>Whole lease (20.97 ha)</b></td><td><b>${RENT_YR:,.0f}</b></td><td>{w['t_dry_total'][0]}–{w['t_dry_total'][1]} t</td>
+<td><b>${rpt_whole[0]}–{rpt_whole[1]}/t/yr</b></td></tr>
+</table>
+<p class="muted">Reading: the good zone's rent burden per standing tonne is negligible; the poor
+stratum's is one to two orders of magnitude higher. These are STANDING-stock figures, not annual
+increment — sustainable-harvest economics need the growth rate, which the field plots would pin
+down. Wet-tonne figures: divide by {1/(1-0.46):.2f}.</p>
 <p><b>How these numbers are built</b> (satellite indices cannot weigh stems — anchors are
 structural): (a) culm-level allometry — bamboo culm mass scales roughly with diameter² (per
 village-bamboo allometries for <i>B. balcooa</i> and congeners, Nath et&nbsp;al. 2009,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Plantation tracker — Step 1: auto-delineate the Domaine de la Cascade
-Bambusa balcooa plantation (~-24.9940, 46.9120, ~26 ha) from Sentinel-2 and
+Bambusa balcooa plantation (~-24.9940, 46.9120; leased parcel 20.97 ha) from Sentinel-2 and
 emit an interactive correction page (output/aoi_editor.html).
 
 Classification: seeded region-growing over NDVI + NDRE (red-edge) + NDVI
