@@ -43,6 +43,9 @@ export class SuitabilityMap {
       renderer: this.renderer,
       style: f => this._style(f),
       onEachFeature: (f, layer) => {
+        const [mx, my] = midpoint(f);
+        f.properties.__lat = Math.round(my * 1e5) / 1e5;
+        f.properties.__lon = Math.round(mx * 1e5) / 1e5;
         this.layerById.set(f.properties.id, layer);
         layer.on('click', ev => {
           L.DomEvent.stop(ev);
@@ -330,6 +333,19 @@ const EXCL_REASONS = {
   'swamp/wetland': 'swamp/wetland-dominated bank',
 };
 
+/* Post-deduction plantable fraction with the reasons field teams can check on
+ * the ground: effective = candidate-class fraction minus likely-paddy. */
+function plantableText(p) {
+  const eff = Math.max(0, p.lf - (p.up || 0));
+  if (p.ut === undefined) return `${Math.round(eff * 100)} % (${WC_NAMES[p.ld] || p.ld})`;
+  const ded = [];
+  if (p.ut > 0.005) ded.push(`${Math.round(p.ut * 100)}% trees`);
+  const ww = (p.uo || 0) + (p.uw || 0);
+  if (ww > 0.005) ded.push(`${Math.round(ww * 100)}% water/wetland`);
+  if ((p.up || 0) > 0.005) ded.push(`${Math.round(p.up * 100)}% likely paddy`);
+  return `${Math.round(eff * 100)} % of buffer` + (ded.length ? ` (deducted: ${ded.join(', ')})` : '');
+}
+
 export function popupHtml(p) {
   const cls = { h: 'High', m: 'Medium', l: 'Low', e: 'Excluded' }[p.c];
   const rows = [
@@ -340,11 +356,13 @@ export function popupHtml(p) {
     ['Slope', `${p.sl}°`],
     ['Elevation', `${p.el} m`],
     ['Rainfall', `${p.rn} mm/yr`],
-    ['Plantable land', `${Math.round(p.lf * 100)} % (${WC_NAMES[p.ld] || p.ld})`],
+    ['Plantable land', plantableText(p)],
   ];
   if (p.wf !== undefined) rows.push(['Water-covered (≥25 % of time)', `${Math.round(p.wf * 100)} % of buffer`]);
   if (p.wt !== undefined && p.wt > 0) rows.push(['Herbaceous wetland', `${Math.round(p.wt * 100)} % of buffer`]);
   const badge = p.tb ? `<span class="popup-badge">✓ ≥ Efaho trial benchmark</span>` : '';
+  const coord = p.__lat !== undefined
+    ? `<div class="popup-coord"><span class="copy-coord" data-c="${p.__lat}, ${p.__lon}" title="Click to copy">${p.__lat}, ${p.__lon} ⧉</span></div>` : '';
   const flags = [];
   if (p.cm) flags.push('<span class="popup-flag cold">❄ cold-marginal (BIO6 &lt; 10°C) — needs species check</span>');
   if (p.sx) flags.push('<span class="popup-flag sal">🧂 possible brackish influence — field-check salinity</span>');
@@ -363,7 +381,7 @@ export function popupHtml(p) {
     <tr><td>Cyclones (100 km, 40 yr)</td><td><b>${p.cn}</b> passages, max cat <b>${p.cc}</b></td></tr>
     <tr><td>Coldest-month min (BIO6)</td><td><b>${p.b6} °C</b> at ${p.el} m</td></tr>
     </table>`;
-  return `<b>Segment ${p.id}</b> ${badge}<table class="popup-table">` +
+  return `<b>Segment ${p.id}</b> ${badge}${coord}<table class="popup-table">` +
     rows.map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('') +
     `</table>` +
     (p.mb !== undefined ? `<div class="popup-mix">Suggested mix: balcooa ${p.mb} / vulgaris ${p.mv} / asper ${p.ma} %</div>` : '') +

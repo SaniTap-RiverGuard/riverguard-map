@@ -161,6 +161,12 @@ body.presenting #btn-present-exit { display: block; }
 .leaflet-popup-content { font-size: 12.5px; }
 .popup-table td { padding: 1px 6px 1px 0; }
 .popup-mix { margin-top: 4px; font-weight: 600; }
+.popup-coord { margin: 1px 0 3px; }
+.copy-coord {
+  font: 11px ui-monospace, Menlo, monospace; color: #336950;
+  background: #eef5f0; border-radius: 4px; padding: 1px 6px; cursor: pointer;
+}
+.copy-coord:hover { background: #dcebe1; }
 .popup-badge {
   display: inline-block; background: #e3f4e9; color: #0d7a3f; border: 1px solid #b3dfc4;
   border-radius: 10px; padding: 1px 8px; font-size: 10.5px; font-weight: 700; vertical-align: 2px;

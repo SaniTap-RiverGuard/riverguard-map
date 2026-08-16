@@ -341,7 +341,7 @@ def layer_landuse_fire():
     buffers = buffers.loc[segs["seg_id"].values]
 
     from rasterio.features import geometry_mask
-    pct = {k: np.zeros(len(segs)) for k in ("crop", "grass", "shrub", "bare", "wetland", "paddy")}
+    pct = {k: np.zeros(len(segs)) for k in ("crop", "grass", "shrub", "bare", "wetland", "paddy", "tree", "water")}
     for i, geom in enumerate(buffers.geometry.values):
         gx0, gy0, gx1, gy1 = geom.bounds
         for ds, bb in zip(wcs, wbounds):
@@ -363,6 +363,8 @@ def layer_landuse_fire():
             pct["shrub"][i] = (v == 20).sum() / tot
             pct["bare"][i] = (v == 60).sum() / tot
             pct["wetland"][i] = (v == 90).sum() / tot
+            pct["tree"][i] = (v == 10).sum() / tot
+            pct["water"][i] = (v == 80).sum() / tot
             # Likely-paddy, PER-PIXEL (agreed 2026-08-14): cropland pixels whose
             # own 30 m slope is < paddy_slope_max_deg, in buffers touching
             # water/wetland. (The earlier buffer-mean slope test was mis-specced:
@@ -423,6 +425,7 @@ def layer_landuse_fire():
         "pct_crop": np.round(pct["crop"], 2), "pct_grass": np.round(pct["grass"], 2),
         "pct_shrub": np.round(pct["shrub"], 2), "pct_bare": np.round(pct["bare"], 2),
         "pct_wetland": np.round(pct["wetland"], 2), "pct_paddy": np.round(pct["paddy"], 2),
+        "pct_tree": np.round(pct["tree"], 2), "pct_water": np.round(pct["water"], 2),
         "fire_dec": np.round(fire_dec, 1),
         "fire_flag": (fire_dec >= cfgl["fire_high_per_decade"]).astype(int),
     }, index=segs.index)
@@ -601,7 +604,7 @@ for r in exp.itertuples():
             "pk": r.pa_km, "pn": (r.pa_name or "")[:40], "fk": r.forest_km,
             "ac": {"road": "r", "boat": "b", "remote": "x"}[r.access], "ak": r.access_km,
             "uc": r.pct_crop, "ug": r.pct_grass, "us": r.pct_shrub, "ub": r.pct_bare,
-            "uw": r.pct_wetland, "up": r.pct_paddy,
+            "uw": r.pct_wetland, "up": r.pct_paddy, "ut": r.pct_tree, "uo": r.pct_water,
             "fd": r.fire_dec, "ff": int(r.fire_flag),
             "cn": int(r.cyc_n), "cc": int(r.cyc_cat), "cf": int(r.cyc_flag),
             "b6": r.bio6, "cm": int(r.cold_flag),
@@ -623,6 +626,7 @@ gj = {"type": "FeatureCollection",
                   "ac": "access class r/b/x (road/boat/remote)", "ak": "km to road access (network for boat, straight-line for remote)",
                   "uc": "cropland frac", "ug": "grassland frac", "us": "shrub frac", "ub": "bare frac",
                   "uw": "wetland frac", "up": "likely-paddy frac (heuristic)",
+                  "ut": "tree-cover frac", "uo": "open-water frac",
                   "fd": "MODIS fire detections per decade within 1 km", "ff": "1 = high fire pressure",
                   "cn": "cyclone passages within 100 km, 40 yr", "cc": "max Saffir-Simpson category", "cf": "1 = high cyclone exposure",
                   "b6": "BIO6 min temp of coldest month degC", "cm": "1 = cold-marginal caution (BIO6 < 10C)",

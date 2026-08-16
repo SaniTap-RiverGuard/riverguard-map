@@ -463,6 +463,16 @@ function initTooltips() {
     btn.addEventListener('mouseleave', () => { if (!pinned) hide(); });
   }
   document.addEventListener('click', e => { if (!e.target.closest('.info')) hide(); });
+  // click-to-copy coordinates in segment popups
+  document.addEventListener('click', e => {
+    const el = e.target.closest('.copy-coord');
+    if (!el) return;
+    navigator.clipboard.writeText(el.dataset.c).then(() => {
+      const orig = el.textContent;
+      el.textContent = 'copied ✓';
+      setTimeout(() => { el.textContent = orig; }, 1200);
+    });
+  });
 }
 
 function updatePresentationLines() {
@@ -507,6 +517,11 @@ function recompute() {
 function renderResults() {
   const y = parseInt($('year-slider').value);
   const s = scenario, sel = s.selection;
+  /* Counters are AS-OF the slider year (year 0 legitimately reads 0 / $0 while
+   * NPV covers the whole horizon) — the labels say so to avoid confusion. */
+  $('lab-net').textContent = `net tCO₂e (cum. y${y})`;
+  $('lab-revenue').textContent = `revenue (cum. y${y})`;
+  $('lab-npv').textContent = `NPV (${params.finance.project_years} yr)`;
   $('r-bank').textContent = fmt(sel.bankKm, 1);
   const props = map.selectedProps();
   const tbKm = props.reduce((a, p) => a + (p.tb ? p.L : 0), 0) / 1000;
