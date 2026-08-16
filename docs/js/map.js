@@ -253,19 +253,26 @@ export class SuitabilityMap {
         if (l) this.map.removeLayer(l);
       return;
     }
+    /* Single neutral colour for ALL classes — distinct from every river/access
+     * colour; class is encoded by width only (primary thickest -> track
+     * thinnest+dashed). Roads render in their own pane BELOW the river
+     * segments, slightly transparent. */
+    const ROAD_COLOR = '#4a4238';
     const ROAD_STYLE = {
-      t: { color: '#ffd24d', weight: 2.4 }, p: { color: '#ffd24d', weight: 2 },
-      s: { color: '#ffb14d', weight: 1.6 }, y: { color: '#ffe9b3', weight: 1.2 },
-      u: { color: '#e8e3d5', weight: 0.9 }, k: { color: '#cfc7b2', weight: 0.7, dashArray: '3 3' },
+      t: { weight: 2.8 }, p: { weight: 2.4 }, s: { weight: 1.8 }, y: { weight: 1.3 },
+      u: { weight: 0.9 }, k: { weight: 0.7, dashArray: '3 3' },
     };
     if (!this.roadsLayer) {
+      this.map.createPane('roads');
+      this.map.getPane('roads').style.zIndex = 350;   // below overlayPane (400) = below rivers
+      this.roadsRenderer = L.canvas({ pane: 'roads', padding: 0.3 });
       const [roads, pts] = await Promise.all([
         fetch('data/roads.geojson').then(r => r.json()),
         fetch('data/access_points.geojson').then(r => r.json()),
       ]);
       this.roadsLayer = L.geoJSON(roads, {
-        renderer: this.renderer,
-        style: f => ({ opacity: 0.85, ...ROAD_STYLE[f.properties.c] }),
+        renderer: this.roadsRenderer,
+        style: f => ({ color: ROAD_COLOR, opacity: 0.6, ...ROAD_STYLE[f.properties.c] }),
         interactive: false,
       });
       this.accessLayer = L.geoJSON(pts, {
@@ -288,8 +295,8 @@ export class SuitabilityMap {
     if (want && !this.minorRoadsLayer) {
       const minor = await fetch('data/roads_minor.geojson').then(r => r.json());
       this.minorRoadsLayer = L.geoJSON(minor, {
-        renderer: this.renderer,
-        style: f => ({ opacity: 0.8, ...this._roadStyle[f.properties.c] }),
+        renderer: this.roadsRenderer,
+        style: f => ({ color: '#4a4238', opacity: 0.55, ...this._roadStyle[f.properties.c] }),
         interactive: false,
       });
     }

@@ -23,7 +23,14 @@ print("Reading roads...")
 roads = gpd.read_file(f"zip://{RAW}/madagascar-latest-free.shp.zip!gis_osm_roads_free_1.shp",
                       bbox=(SA["lon_min"], SA["lat_min"], SA["lon_max"], SA["lat_max"]))
 roads = roads[roads["fclass"].isin(CLASSES)][["fclass", "geometry"]]
-print(f"  {len(roads)} road features in study bbox")
+# same placeholder-way exclusion as the access analysis (config threshold)
+import numpy as np
+max_sp = CFG["decision_layers"]["access"]["max_node_spacing_km"]
+rm = roads.to_crs("EPSG:32738")
+nodes = roads.geometry.apply(lambda g: sum(len(p.coords) for p in (g.geoms if g.geom_type == "MultiLineString" else [g])))
+spacing_km = rm.length / 1000 / np.maximum(nodes - 1, 1)
+roads = roads[spacing_km <= max_sp]
+print(f"  {len(roads)} road features in study bbox (placeholder ways excluded)")
 
 CODE = {"trunk": "t", "primary": "p", "secondary": "s", "tertiary": "y", "unclassified": "u", "track": "k"}
 MAIN = {"trunk", "primary", "secondary", "tertiary"}

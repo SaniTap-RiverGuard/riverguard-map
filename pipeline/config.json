@@ -129,6 +129,8 @@
     "access": {
       "road_classes": ["trunk", "primary", "secondary", "tertiary", "unclassified", "track"],
       "road_snap_m": 250,
+      "max_node_spacing_km": 1.0,
+      "_suspect_note": "OSM ways whose mean distance between nodes exceeds max_node_spacing_km are placeholder/unsurveyed geometry (2026-08-16 scan: 6 such ways coast-wide, 2-3 nodes each) and are excluded from BOTH the access analysis and the roads overlay.",
       "rapids_gradient_pct": 1.5,
       "_comment": "Access point = road within road_snap_m of a segment. Boat reachability: downstream traversal from access points, broken where the SUSTAINED river-line gradient — mean over a 3-segment (~1.5 km) window along the chain — exceeds rapids_gradient_pct, or at semi-arid-excluded segments. (Fixed 2026-08-16: single-segment gradient let DEM noise throw false barriers.) DESK HEURISTIC: dams and weirs are not captured; requires local confirmation. A downstream-propagation invariant is asserted on every run."
     },

@@ -175,7 +175,12 @@ def layer_access():
     roads = gpd.read_file(f"zip://{RAW}/madagascar-latest-free.shp.zip!gis_osm_roads_free_1.shp",
                           bbox=tuple(segs.total_bounds))
     roads = roads[roads["fclass"].isin(cfga["road_classes"])].to_crs(UTM)
-    print(f"  {len(roads)} road features")
+    # drop placeholder ways (unsurveyed straight lines with km-spaced nodes)
+    nodes = roads.geometry.apply(lambda g: sum(len(p.coords) for p in (g.geoms if g.geom_type == "MultiLineString" else [g])))
+    spacing_km = roads.length / 1000 / np.maximum(nodes - 1, 1)
+    n_sus = (spacing_km > cfga["max_node_spacing_km"]).sum()
+    roads = roads[spacing_km <= cfga["max_node_spacing_km"]]
+    print(f"  {len(roads)} road features ({n_sus} placeholder ways excluded, node spacing > {cfga['max_node_spacing_km']} km)")
     rtree = STRtree(roads.geometry.values)
     snap = cfga["road_snap_m"]
     seg_geoms = segs_utm.geometry.values
