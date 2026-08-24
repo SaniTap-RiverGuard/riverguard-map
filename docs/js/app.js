@@ -1,6 +1,6 @@
 /* RiverGuard app main. */
-import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js';
-import { SuitabilityMap, popupHtml } from './map.js';
+import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=2';
+import { SuitabilityMap, popupHtml } from './map.js?v=2';
 
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });

@@ -6,7 +6,9 @@
 <title>Project RiverGuard — Riparian Bamboo, Madagascar East Coast</title>
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="vendor/leaflet-geoman.css">
-<link rel="stylesheet" href="css/app.css">
+<!-- ?v= version-stamps our own assets so a cached copy can never mix with a
+     newer index.html (Pages caches for 10 min); bump on every release -->
+<link rel="stylesheet" href="css/app.css?v=2">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎋</text></svg>">
 </head>
 <body>
@@ -263,6 +265,6 @@
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-geoman.min.js"></script>
 <script src="vendor/chart.umd.js"></script>
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=2"></script>
 </body>
 </html>
