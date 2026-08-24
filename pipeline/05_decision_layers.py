@@ -594,6 +594,7 @@ for r in exp.itertuples():
                 "id": r.seg_id, "s": r.score, "c": "e", "x": r.excl, "L": int(r.length_m),
                 "cy": r.clay, "sd": r.sand, "sl": r.slope, "el": r.elev, "rn": r.rain,
                 "lf": r.lc_frac, "ld": r.lc_dom, "wf": r.water_frac, "wt": r.wet_frac,
+                "gs": r.geom_src[0],
             },
             "geometry": {"type": "LineString", "coordinates": coords},
         })
@@ -615,6 +616,7 @@ for r in exp.itertuples():
             "b6": r.bio6, "cm": int(r.cold_flag),
             "wf": r.water_frac, "wt": r.wet_frac,
             "ck": r.coast_km, "sx": int(r.sal_flag),
+            "gs": r.geom_src[0],
         },
         "geometry": {"type": "LineString", "coordinates": coords},
     })
@@ -636,7 +638,8 @@ gj = {"type": "FeatureCollection",
                   "cn": "cyclone passages within 100 km, 40 yr", "cc": "max Saffir-Simpson category", "cf": "1 = high cyclone exposure",
                   "b6": "BIO6 min temp of coldest month degC", "cm": "1 = cold-marginal caution (BIO6 < 10C)",
                   "wf": "buffer fraction with JRC GSW water occurrence >25%", "wt": "herbaceous-wetland fraction of buffer",
-                  "ck": "km to coastline", "sx": "1 = possible brackish influence - field-check salinity"},
+                  "ck": "km to coastline", "sx": "1 = possible brackish influence - field-check salinity",
+                  "gs": "geometry source: s = OSM-snapped (v2), h = HydroRIVERS"},
       "_benchmark": {"score": tb_score, "total_km": round(tb_km),
                      "note": "median suitability score of the Efaho reach where SaniTap 2026 field trials succeeded"},
       "features": features}

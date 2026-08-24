@@ -216,6 +216,8 @@ for i, (line_row, buf_row) in enumerate(zip(lines.itertuples(), buffers.itertupl
         "mix_a": mix["asper"],
         "ord": line_row.ord_stra,
         "riv": line_row.hyriv_id,
+        # geometry provenance (11_promote_geometry.py): 'snapped' = OSM-snapped
+        "geom_src": getattr(line_row, "geom_src", "hydrorivers"),
     })
 
 out = gpd.GeoDataFrame(rows, crs="EPSG:4326")
@@ -300,6 +302,7 @@ for r in exp.itertuples():
             "el": r.elev, "rn": r.rain, "lf": r.lc_frac, "ld": r.lc_dom,
             "wf": r.water_frac, "wt": r.wet_frac,
             "mb": r.mix_b, "mv": r.mix_v, "ma": r.mix_a, "o": r.ord, "rv": r.riv, "tb": r.tb,
+            "gs": r.geom_src[0],
         },
         "geometry": {"type": "LineString", "coordinates": coords},
     })
@@ -311,7 +314,8 @@ gj = {"type": "FeatureCollection",
                   "rn": "annual rain mm", "lf": "plantable fraction", "ld": "dominant WorldCover class",
                   "mb": "recommended % balcooa", "mv": "% vulgaris", "ma": "% asper",
                   "o": "Strahler order", "rv": "HydroRIVERS id",
-                  "tb": "1 = meets proven Efaho trial benchmark"},
+                  "tb": "1 = meets proven Efaho trial benchmark",
+                  "gs": "geometry source: s = OSM-snapped (v2), h = HydroRIVERS"},
       "_benchmark": {"score": tb_score, "total_km": round(tb_km),
                      "note": "median suitability score of the Efaho reach where SaniTap 2026 field trials succeeded"},
       "features": features}

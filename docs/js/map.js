@@ -427,6 +427,8 @@ export function popupHtml(p) {
     (p.tb ? ' · ≥ benchmark ✓' : '');
   const rows = [
     ['Score', scoreTxt],
+    ['Geometry', p.gs === 's' ? 'OSM-snapped (v2)'
+      : p.gs === 'h' ? 'HydroRIVERS (not snapped)' : 'HydroRIVERS (v1 dataset)'],
     ['Bank length', `${p.L} m`],
     ['Clay 0–30 cm', `${p.cy} %`],
     ['Sand 0–30 cm', `${p.sd} %`],

@@ -59,6 +59,20 @@ Raw downloads (~3 GB) land in `data/raw/` and are **gitignored** — never commi
    falls east of a piecewise coastal separator line (config), i.e. east/south-
    draining to the Indian Ocean. Headwater reaches with upstream catchment
    < 25 km² are dropped. Reaches are split into ~500 m segments (UTM 38S).
+
+   **Geometry v2 (promoted 2026-08-24)** — `09_osm_snap.py` +
+   `11_promote_geometry.py`: HydroRIVERS lines sit a median ~90 m (p90 ~280 m)
+   from the imagery channel, so for Strahler order ≥ 3 the segment lines are
+   snapped to OSM waterway lines wherever an unambiguous continuous match
+   exists (continuity guards: every densified point within 1.1 km, no > 200 m
+   point jumps, length ratio 0.6–2.5; snapped as accepted per segment).
+   Segment IDs, segmentation and `length_m` are unchanged; sampling buffers
+   are rebuilt on the snapped lines and *all* attributes re-derived. Every
+   segment carries a `gs` provenance flag (`s` snapped / `h` HydroRIVERS).
+   The Efaho trial reach stays on HydroRIVERS geometry (OSM coverage gap in
+   Anosy — flagged for future refinement). The pre-snap dataset ships as
+   `docs/data/segments_v1_hydrorivers.geojson`, loadable in the app with
+   `?data=v1`; IDs are identical so `#sel=` share-links resolve in both.
 2. **Rasters** (`02_rasters.py`): downloads/prepares all layers (idempotent).
    Slope is computed from GLO-30 in-script; SoilGrids is fetched by windowed
    remote reads (no continental download); clay/sand are depth-weighted
@@ -167,6 +181,11 @@ python3 -m venv .venv
 .venv/bin/python pipeline/03_score.py           # sampling + scoring + GeoJSON export
 .venv/bin/python pipeline/04_preview.py         # static PNG review map
 ```
+
+Geometry v2 (OSM snap) lives in `09_osm_snap.py` (build snapped geometry) and
+`11_promote_geometry.py` (promote into `segments_raw.gpkg`, back up v1, clear
+layer caches); after promoting, re-run `03` → `05` → `07` so every attribute
+describes the snapped buffers.
 
 All weights/thresholds live in `pipeline/config.json`; edit and re-run steps
 3–4 (fast — no re-download needed).

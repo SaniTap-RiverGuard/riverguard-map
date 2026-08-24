@@ -1,6 +1,6 @@
 /* RiverGuard app main. */
-import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=4';
-import { SuitabilityMap, popupHtml } from './map.js?v=4';
+import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=5';
+import { SuitabilityMap, popupHtml } from './map.js?v=5';
 
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
@@ -17,8 +17,14 @@ let playTimer = null;
 let activePreset = null;
 
 async function init() {
+  /* ?data=v1 loads the pre-snap HydroRIVERS dataset (retrievability guarantee
+   * from the 2026-08-24 geometry promotion). Segment IDs are identical across
+   * versions, so #sel= links resolve in either. */
+  const V1 = new URLSearchParams(location.search).get('data') === 'v1';
+  if (V1) document.querySelector('.brand .sub').textContent += ' · v1 geometry (pre-snap)';
   const [mcRes, segRes] = await Promise.all([
-    fetch('data/model_config.json'), fetch('data/segments.geojson'),
+    fetch('data/model_config.json'),
+    fetch(V1 ? 'data/segments_v1_hydrorivers.geojson' : 'data/segments.geojson'),
   ]);
   MC = await mcRes.json();
   const segs = await segRes.json();
@@ -798,7 +804,8 @@ function initExports() {
       `bank_km_meets_trial_benchmark,${kmWhere(p => p.tb)},,,,,,\narea_ha,${s.selection.areaHa.toFixed(1)},,,,,,\n` +
       `seedlings,${Math.round(s.selection.totalSeedlings)},,,,,,\nnpv_usd,${s.totals.npv.toFixed(0)},,,,,,\n` +
       `bank_km_road_adjacent,${kmWhere(p => p.ac === 'r')},,,,,,\nbank_km_boat_reachable,${kmWhere(p => p.ac === 'b')},,,,,,\n` +
-      `bank_km_remote,${kmWhere(p => p.ac === 'x')},,,,,,\nbank_km_high_cyclone,${kmWhere(p => p.cf)},,,,,,\n` +
+      `bank_km_remote,${kmWhere(p => p.ac === 'x')},,,,,,\nbank_km_snapped_geometry,${kmWhere(p => p.gs === 's')},,,,,,\n` +
+      `bank_km_high_cyclone,${kmWhere(p => p.cf)},,,,,,\n` +
       `bank_km_high_fire,${kmWhere(p => p.ff)},,,,,,\nbank_km_cold_marginal,${kmWhere(p => p.cm)},,,,,,\n` +
       `mean_pop_5km,${props.length ? Math.round(props.reduce((a, p) => a + (p.p5 || 0), 0) / props.length) : 0},,,,,,\n`;
     download('riverguard_scenario.csv', csv, 'text/csv');
@@ -935,6 +942,8 @@ function assumptionsHtml() {
     ['Canopy growth curve', 'canopy area ∝ culm count; mature 5 m diameter at yr-20 culm count', 'derived assumption (documented in README)'],
   ];
   const suit = [
+    ['River geometry (v2, promoted 2026-08-24)', 'Segment lines for Strahler order ≥ 3 are SNAPPED to OSM waterway lines where an unambiguous continuous match exists (median lateral offset corrected ~63 m; the 100 m sampling buffer now sits on the real channel there). Every popup and export carries the per-segment provenance flag: OSM-snapped vs HydroRIVERS. Unsnapped segments (no OSM coverage or ambiguous match) remain on HydroRIVERS geometry. The pre-snap dataset stays available by adding ?data=v1 to the URL — segment IDs are identical, so saved share-links work in both.', 'HydroRIVERS v10 + OSM waterways (Geofabrik); pipeline/09_osm_snap.py'],
+    ['Efaho trial reach geometry', 'The Efaho trial segments remain on HydroRIVERS geometry — an OSM waterway coverage gap in Anosy, flagged for future refinement, not an error. Their attributes are unchanged from v1.', 'known limitation (2026-08-24)'],
     ['Weights', 'clay/texture 40 %, land cover 30 %, slope 15 %, rainfall 15 %', 'pipeline/config.json (agreed 2026-08-13)'],
     ['Soil texture', 'SoilGrids 250 m clay & sand 0–30 cm; clay ramps 10→30 %, sand penalised > 60 %. CAVEAT: SoilGrids maps the regional soil profile and CANNOT distinguish sandy braided channel beds from surrounding soils — field soil verification is mandatory before any planting commitment.', 'ISRIC SoilGrids 2.0'],
     ['Land cover', 'ESA WorldCover 2021: shrub/grass/crop/bare plantable; forest, built-up, water, wetland, mangrove excluded (VM0047 additionality)', 'ESA WorldCover v200'],
