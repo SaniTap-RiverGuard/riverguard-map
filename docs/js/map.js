@@ -107,7 +107,10 @@ export class SuitabilityMap {
     const p = f.properties;
     const sel = this.selected.has(p.id);
     if (!sel && !this.passesFilter(p)) {
-      return { color: '#9aa59d', weight: 0.7, opacity: 0.12 };
+      /* Filtered-out: thin faint grey but clearly CONTINUOUS, so the river's
+       * course stays readable between coloured matching segments (2026-08-24
+       * legibility round; was opacity .12 which read as broken dashes). */
+      return { color: '#cfd8d0', weight: 1.4, opacity: 0.65 };
     }
     if (!sel && this.overlay && this.overlay !== 'suit' && p.c !== 'e') {
       return { color: this._overlayColor(p), weight: 2, opacity: 0.9 };
@@ -416,9 +419,14 @@ function plantableText(p) {
 }
 
 export function popupHtml(p) {
-  const cls = { h: 'High', m: 'Medium', l: 'Low', e: 'Excluded' }[p.c];
+  /* Score is absolute, class is a coast-relative percentile — label both
+   * explicitly (an 82.9 can legitimately be class medium). */
+  const cls = { h: 'high', m: 'medium', l: 'low', e: 'excluded' }[p.c];
+  const scoreTxt = `${p.s} / 100 · class: ${cls} (relative)` +
+    (p.x ? ' — ' + (EXCL_REASONS[p.x] || p.x) : '') +
+    (p.tb ? ' · ≥ benchmark ✓' : '');
   const rows = [
-    ['Suitability', `${p.s} / 100 (${cls}${p.x ? ' — ' + (EXCL_REASONS[p.x] || p.x) : ''})`],
+    ['Score', scoreTxt],
     ['Bank length', `${p.L} m`],
     ['Clay 0–30 cm', `${p.cy} %`],
     ['Sand 0–30 cm', `${p.sd} %`],

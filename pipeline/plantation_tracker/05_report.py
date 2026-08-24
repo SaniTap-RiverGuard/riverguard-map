@@ -220,3 +220,10 @@ re-run <code>02→03→04→05</code>.</p>
 out = HERE / "output" / "report.html"
 out.write_text(html)
 print(f"Wrote {out} ({out.stat().st_size/1e6:.1f} MB)")
+
+# Publish step: the Pages site serves the report at /plantation-report.html
+# (linked from the map's Assumptions modal). Self-contained file — figures are
+# embedded as data URIs — so this copy is the whole deploy artifact.
+pages_copy = HERE.parent.parent / "docs" / "plantation-report.html"
+pages_copy.write_text(html)
+print(f"Copied to {pages_copy} (commit docs/ to deploy)")

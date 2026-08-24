@@ -1,6 +1,6 @@
 /* RiverGuard app main. */
-import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=3';
-import { SuitabilityMap, popupHtml } from './map.js?v=3';
+import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=4';
+import { SuitabilityMap, popupHtml } from './map.js?v=4';
 
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
@@ -179,18 +179,9 @@ function initInputs() {
     const open = $('panel').classList.toggle('open');
     $('btn-panel-toggle').textContent = open ? '✕ Close' : '☰ Steps';
   });
-  // Decision filters -> one predicate over segment properties
-  const LEGENDS = {
-    suit: 'green high · amber medium · grey low · pale excluded',
-    sel: 'cyan = selected · grey = not selected',
-    access: 'green road-adjacent · blue boat-reachable · grey remote',
-    pop: 'people within 5 km: <1.5k · 1.5–3k · 3–5k · 5–8k · >8k (light→dark blue, quintiles)',
-    cyclone: 'passages/40 yr: <13 · 13–15 · 15–17 · 17–20 · ≥20 (light→dark red) · darkest = high-exposure flag (top quartile AND cat-4/5)',
-    cold: 'purple = cold-marginal (BIO6 < 10 °C) · green = not flagged',
-  };
   const setOverlayMode = mode => {
     map.setOverlay(mode);
-    $('overlay-legend').textContent = LEGENDS[mode];
+    renderLegend();
     for (const b of document.querySelectorAll('.paint'))
       b.classList.toggle('active', b.dataset.overlay === mode);
   };
@@ -200,6 +191,14 @@ function initInputs() {
       setOverlayMode(btn.dataset.overlay);
     });
   }
+  $('map-legend-toggle').addEventListener('click', () => {
+    const body = $('map-legend-body');
+    const hide = !body.classList.contains('hidden');
+    body.classList.toggle('hidden', hide);
+    $('map-legend-toggle').textContent = hide ? '▸' : '▾';
+  });
+  if (window.innerWidth <= 800) $('map-legend-toggle').click();  // collapsed by default on phones
+  window.addEventListener('resize', positionLegend);
   setOverlayMode('suit');
   $('roads-toggle').addEventListener('change', () => map.toggleRoads($('roads-toggle').checked));
 
@@ -358,6 +357,7 @@ function applyFilters() {
   const nActive = countActive(s);
   const pred = predicateFrom(s);
   map.setFilter(nActive === 0 ? null : pred);
+  renderLegend();
   const m = matchStats(pred);
   $('filter-match').innerHTML = nActive === 0
     ? 'No filters active — all segments match.'
@@ -370,6 +370,44 @@ function applyFilters() {
     $('filter-summary').classList.remove('hidden');
   }
   updatePresentationLines();
+}
+
+/* ------------------------------------------------ on-map legend */
+const LEGENDS = {
+  suit: { title: 'Suitability class', items: [
+    ['#1a9850', 'high (top 25 %)'], ['#fdae61', 'medium'], ['#9e9e9e', 'low'], ['#d9d9d9', 'excluded']] },
+  sel: { title: 'Selection state', items: [
+    ['#00e5ff', 'selected'], ['#9aa59d', 'not selected']] },
+  access: { title: 'Access', items: [
+    ['#1a9850', 'road-adjacent'], ['#2166ac', 'boat-reachable'], ['#8c8c8c', 'remote']] },
+  pop: { title: 'People within 5 km', items: [
+    ['#eff3ff', '< 1,500'], ['#bdd7e7', '1,500–3,000'], ['#6baed6', '3,000–5,000'],
+    ['#3182bd', '5,000–8,000'], ['#08519c', '> 8,000']] },
+  cyclone: { title: 'Cyclone passages / 40 yr', items: [
+    ['#fee5d9', '< 13'], ['#fcae91', '13–15'], ['#fb6a4a', '15–17'], ['#de2d26', '17–20'],
+    ['#a50f15', '≥ 20'], ['#67000d', 'high-exposure flag (cat 4–5)']] },
+  cold: { title: 'Cold-marginal', items: [
+    ['#6a51a3', 'cold-marginal (BIO6 < 10 °C)'], ['#b8ceb8', 'not flagged']] },
+};
+
+function renderLegend() {
+  const def = LEGENDS[map.overlay || 'suit'];
+  $('map-legend-title').textContent = def.title;
+  const row = ([col, label], cls = '') =>
+    `<div class="legend-row"><span class="legend-swatch ${cls}" style="background:${col}"></span>${label}</div>`;
+  let html = def.items.map(i => row(i)).join('');
+  if (map.overlay !== 'sel') html += row(['#00e5ff', 'selected'], 'sel');
+  if (map.filterFn) html += row(['#cfd8d0', "faded = doesn't match filters"], 'thin');
+  $('map-legend-body').innerHTML = html;
+  positionLegend();
+}
+
+/* Keep the legend sitting just above the results bar, whose height varies
+ * with wrapping and presentation mode. */
+function positionLegend() {
+  const wrap = document.getElementById('map-wrap').getBoundingClientRect();
+  const rb = $('results-bar').getBoundingClientRect();
+  $('map-legend').style.bottom = `${Math.max(12, Math.round(wrap.bottom - rb.top + 8))}px`;
 }
 
 function clearPresetHighlight() {
@@ -594,6 +632,7 @@ function renderResults() {
   $('r-revenue').textContent = fmtM(revCum);
   $('r-npv').textContent = fmtM(s.totals.npv);
   renderConsistency();
+  positionLegend();
 }
 
 function setYear(y, keep = false) {
@@ -846,10 +885,12 @@ function initPresentation() {
   $('btn-present').addEventListener('click', () => {
     document.body.classList.add('presenting');
     map.map.invalidateSize();
+    setTimeout(positionLegend, 60);
   });
   exit.addEventListener('click', () => {
     document.body.classList.remove('presenting');
     map.map.invalidateSize();
+    setTimeout(positionLegend, 60);
   });
 }
 
@@ -929,7 +970,8 @@ function assumptionsHtml() {
     <h3>Suitability scoring</h3>
     <table><tr><th>Component</th><th>Rule</th><th>Source</th></tr>${tbl(suit)}</table>
     <h3>Decision-support layers (context only — never change the suitability score)</h3>
-    <table><tr><th>Layer</th><th>Method & caveats</th><th>Source</th></tr>${tbl(layers)}</table>`;
+    <table><tr><th>Layer</th><th>Method & caveats</th><th>Source</th></tr>${tbl(layers)}</table>
+    <p class="modal-links">Related: <a href="plantation-report.html" target="_blank" rel="noopener">Cascade plantation analysis</a></p>`;
 }
 
 init();

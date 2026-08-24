@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="vendor/leaflet-geoman.css">
 <!-- ?v= version-stamps our own assets so a cached copy can never mix with a
      newer index.html (Pages caches for 10 min); bump on every release -->
-<link rel="stylesheet" href="css/app.css?v=3">
+<link rel="stylesheet" href="css/app.css?v=4">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎋</text></svg>">
 </head>
 <body>
@@ -200,7 +200,6 @@
           <button class="paint" type="button" data-overlay="suit">🖌 Suitability class</button>
           <button class="paint" type="button" data-overlay="sel">🖌 Selection state</button>
         </div>
-        <div id="overlay-legend" class="hint"></div>
         <label class="row"><input type="checkbox" id="roads-toggle"> Show roads &amp; river-access points
           <button class="info" type="button" data-tip="Draws the OSM roads used by the access analysis (dark grey-brown, drawn under the rivers; thicker = bigger road, dashed = track — tracks appear when zoomed in) and cyan dots where a road comes within 250 m of a river segment. For logistics planning and visually verifying the road-adjacent classification.">i</button></label>
       </section>
@@ -209,6 +208,14 @@
     <div id="map-wrap">
       <div id="map"></div>
       <button id="btn-panel-toggle" title="Show/hide the steps panel">☰ Steps</button>
+
+      <div id="map-legend">
+        <div id="map-legend-head">
+          <span id="map-legend-title"></span>
+          <button id="map-legend-toggle" title="Collapse legend">▾</button>
+        </div>
+        <div id="map-legend-body"></div>
+      </div>
 
       <div id="filter-summary" class="hidden">
         <span id="filter-summary-text"></span>
@@ -263,6 +270,6 @@
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-geoman.min.js"></script>
 <script src="vendor/chart.umd.js"></script>
-<script type="module" src="js/app.js?v=3"></script>
+<script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>
