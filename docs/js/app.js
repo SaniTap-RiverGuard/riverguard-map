@@ -160,24 +160,31 @@ function initInputs() {
   }
   updateMixLabels();
 
+  // Step 2: selection tools (all filter-aware — they only pick up segments
+  // that match the Step 1 filters)
   $('btn-clear').addEventListener('click', () => map.clearSelection());
-  $('btn-select-visible-high').addEventListener('click', () => map.selectVisibleHigh());
+  $('btn-select-visible').addEventListener('click', () => map.selectVisibleMatching());
+  $('btn-select-box').addEventListener('click', () => map.startSelectDraw('Rectangle'));
+  $('btn-select-poly').addEventListener('click', () => map.startSelectDraw('Polygon'));
+  $('btn-panel-toggle').addEventListener('click', () => {
+    const open = $('panel').classList.toggle('open');
+    $('btn-panel-toggle').textContent = open ? '✕ Close' : '☰ Steps';
+  });
   // Decision filters -> one predicate over segment properties
   const LEGENDS = {
     suit: 'green high · amber medium · grey low · pale excluded',
+    sel: 'cyan = selected · grey = not selected',
     access: 'green road-adjacent · blue boat-reachable · grey remote',
     pop: 'people within 5 km: <1.5k · 1.5–3k · 3–5k · 5–8k · >8k (light→dark blue, quintiles)',
     cyclone: 'passages/40 yr: <13 · 13–15 · 15–17 · 17–20 · ≥20 (light→dark red) · darkest = high-exposure flag (top quartile AND cat-4/5)',
     cold: 'purple = cold-marginal (BIO6 < 10 °C) · green = not flagged',
   };
   const setOverlayMode = mode => {
-    $('overlay-mode').value = mode;
     map.setOverlay(mode);
     $('overlay-legend').textContent = LEGENDS[mode];
     for (const b of document.querySelectorAll('.paint'))
       b.classList.toggle('active', b.dataset.overlay === mode);
   };
-  $('overlay-mode').addEventListener('change', () => setOverlayMode($('overlay-mode').value));
   for (const btn of document.querySelectorAll('.paint')) {
     btn.addEventListener('click', e => {
       e.preventDefault(); e.stopPropagation();   // don't toggle the criterion checkbox

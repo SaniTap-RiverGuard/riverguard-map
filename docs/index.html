@@ -31,34 +31,9 @@
 
   <main id="main">
     <aside id="panel">
-      <section class="panel-block" id="block-selection">
-        <h2>Selection</h2>
-        <p class="hint">Click segments to select. Shift-drag for box select. Draw polygons with the map toolbar for areas the data missed.</p>
-        <div class="btn-row">
-          <button id="btn-select-visible-high">Add visible high-class segments to plan</button>
-          <button class="info" type="button" data-tip="Three separate ideas: FILTERS fade segments on the map and limit this button. SELECTION (your plan) is the set of segments the counters, carbon and revenue numbers are computed from. COLOURING only changes how the map looks. This button adds every currently-visible, unfiltered high-class segment to your plan.">i</button>
-          <button id="btn-clear">Clear plan</button>
-        </div>
-      </section>
-
-      <section class="panel-block">
-        <h2>Colour map by …</h2>
-        <select id="overlay-mode">
-          <option value="suit" selected>Suitability class</option>
-          <option value="access">Access (road / boat / remote)</option>
-          <option value="pop">Population within 5 km</option>
-          <option value="cyclone">Cyclone exposure</option>
-          <option value="cold">Cold-marginal caution</option>
-        </select>
-        <div id="overlay-legend" class="hint"></div>
-        <p class="hint display-note">Changes colours only — does not filter. Tip: the 🖌 buttons in the filter list below jump here too.</p>
-        <label class="row"><input type="checkbox" id="roads-toggle"> Show roads &amp; river-access points
-          <button class="info" type="button" data-tip="Draws the OSM roads used by the access analysis (dark grey-brown, drawn under the rivers; thicker = bigger road, dashed = track — tracks appear when zoomed in) and cyan dots where a road comes within 250 m of a river segment. For logistics planning and visually verifying the road-adjacent classification.">i</button></label>
-      </section>
-
-      <section class="panel-block">
-        <h2>Decision filters</h2>
-        <p class="hint">Tick a criterion to activate it, then set its direction — the tool never decides whether an attribute is good or bad. Filtered-out segments fade and are skipped by "Select visible high". Suitability scores are unchanged.</p>
+      <section class="panel-block step" id="block-filters">
+        <h2><span class="step-num">1</span> Filter the river network</h2>
+        <p class="hint step-lead">Narrow the whole coast down to river banks that fit your strategy. Non-matching segments fade on the map — nothing is selected yet.</p>
         <div class="preset-box">
           <button class="preset-btn" data-preset="op">Easy to plant + community nearby</button>
           <p class="preset-desc">score ≥ trial benchmark · road or boat access · &gt;1,000 people within 5 km</p>
@@ -76,7 +51,7 @@
 
         <div class="criterion">
           <label class="row"><input type="checkbox" id="fe-suit" class="f-en"> Suitability
-            <button class="info" type="button" data-tip="Keep only banks at or above a chosen level. 'Trial benchmark' = score ≥ 79, the median of the Efaho reaches where our field trials are thriving; class levels are relative (high = top quartile of the coast).">i</button><button class="paint" type="button" data-overlay="suit" title="Colour the map by this attribute">🖌</button></label>
+            <button class="info" type="button" data-tip="Keep only banks at or above a chosen level. 'Trial benchmark' = score ≥ 79, the median of the Efaho reaches where our field trials are thriving; class levels are relative (high = top quartile of the coast).">i</button><button class="paint" type="button" data-overlay="suit" title="Colour the map by this attribute (display only)">🖌</button></label>
           <select id="fd-suit" class="f-dir">
             <option value="tb" selected>≥ trial benchmark (score 79)</option>
             <option value="m">class medium or better</option>
@@ -86,7 +61,7 @@
 
         <div class="criterion">
           <label class="row"><input type="checkbox" id="fe-acc" class="f-en"> Access
-            <button class="info" type="button" data-tip="Road-adjacent: road within 250 m. Boat-reachable: reachable by pirogue downstream from a road access point (desk estimate — rapids inferred from river gradient; needs local confirmation). Remote: neither.">i</button><button class="paint" type="button" data-overlay="access" title="Colour the map by this attribute">🖌</button></label>
+            <button class="info" type="button" data-tip="Road-adjacent: road within 250 m. Boat-reachable: reachable by pirogue downstream from a road access point (desk estimate — rapids inferred from river gradient; needs local confirmation). Remote: neither.">i</button><button class="paint" type="button" data-overlay="access" title="Colour the map by this attribute (display only)">🖌</button></label>
           <div class="row-group indent">
             <label class="row"><input type="checkbox" id="fd-acc-r" checked> Road</label>
             <label class="row"><input type="checkbox" id="fd-acc-b" checked> Boat</label>
@@ -96,7 +71,7 @@
 
         <div class="criterion">
           <label class="row"><input type="checkbox" id="fe-pop" class="f-en"> Population within 5 km ≥ <span id="fd-pop-val">1,000</span>
-            <button class="info" type="button" data-tip="Keep banks with at least this many people living within 5 km (WorldPop 2020). Proxy for labour availability and community impact.">i</button><button class="paint" type="button" data-overlay="pop" title="Colour the map by this attribute">🖌</button></label>
+            <button class="info" type="button" data-tip="Keep banks with at least this many people living within 5 km (WorldPop 2020). Proxy for labour availability and community impact.">i</button><button class="paint" type="button" data-overlay="pop" title="Colour the map by this attribute (display only)">🖌</button></label>
           <input type="range" id="fd-pop" class="indent" min="0" max="20000" step="500" value="1000">
         </div>
 
@@ -108,7 +83,7 @@
 
         <div class="criterion">
           <label class="row"><input type="checkbox" id="fe-cyc" class="f-en"> Cyclone exposure
-            <button class="info" type="button" data-tip="High exposure = among the most cyclone-battered quarter of the coast AND hit by at least one category-4/5 storm within 100 km since 1986. Pick your argument: high exposure means the most erosion-protection value, but also more risk to young plants in years 1–3.">i</button><button class="paint" type="button" data-overlay="cyclone" title="Colour the map by this attribute">🖌</button></label>
+            <button class="info" type="button" data-tip="High exposure = among the most cyclone-battered quarter of the coast AND hit by at least one category-4/5 storm within 100 km since 1986. Pick your argument: high exposure means the most erosion-protection value, but also more risk to young plants in years 1–3.">i</button><button class="paint" type="button" data-overlay="cyclone" title="Colour the map by this attribute (display only)">🖌</button></label>
           <select id="fd-cyc" class="f-dir">
             <option value="only" selected>only high-exposure (prioritise protection value)</option>
             <option value="excl">exclude high-exposure (avoid establishment risk)</option>
@@ -117,7 +92,7 @@
 
         <div class="criterion">
           <label class="row"><input type="checkbox" id="fe-cold" class="f-en"> Cold-marginal
-            <button class="info" type="button" data-tip="Cold-marginal = coldest month below 10 °C (typically above ~900 m — upper Mangoro/Alaotra). Species cold tolerance is not yet field-verified: exclude to be safe, or select only these to plan a cold-tolerance trial.">i</button><button class="paint" type="button" data-overlay="cold" title="Colour the map by this attribute">🖌</button></label>
+            <button class="info" type="button" data-tip="Cold-marginal = coldest month below 10 °C (typically above ~900 m — upper Mangoro/Alaotra). Species cold tolerance is not yet field-verified: exclude to be safe, or select only these to plan a cold-tolerance trial.">i</button><button class="paint" type="button" data-overlay="cold" title="Colour the map by this attribute (display only)">🖌</button></label>
           <select id="fd-cold" class="f-dir">
             <option value="excl" selected>exclude cold-marginal</option>
             <option value="only">only cold-marginal</option>
@@ -139,11 +114,29 @@
         </div>
 
         <div class="derived" id="filter-match"></div>
+      </section>
+
+      <section class="panel-block step" id="block-select">
+        <h2><span class="step-num">2</span> Select your target area</h2>
+        <p class="hint step-lead">Build your selection — the set of segments every figure in Step 3 is computed from. Only segments matching the Step 1 filters get picked up.</p>
+        <div class="btn-row">
+          <button id="btn-select-box">⬚ Draw box to select</button>
+          <button id="btn-select-poly">⬠ Draw polygon to select</button>
+        </div>
+        <button id="btn-select-visible" class="wide">Select all matching segments in current map view</button>
+        <button id="btn-clear" class="wide">Clear selection</button>
+        <p class="hint">You can also click single segments on the map to add or remove them; shift-drag draws a quick selection box. For planting areas the river data missed, draw a free polygon with the toolbar on the left edge of the map.</p>
         <div id="drawn-list"></div>
       </section>
 
-      <section class="panel-block">
-        <h2>Planting layout</h2>
+      <section class="panel-block step" id="block-results">
+        <h2><span class="step-num">3</span> Results</h2>
+        <p class="hint step-lead">Figures below are computed for your selected segments only.</p>
+        <p class="hint">Read them in the counter bar and year slider at the bottom of the map; 📈 opens the chart. The settings here adjust the underlying model.</p>
+      </section>
+
+      <section class="panel-block substep">
+        <h3>Planting layout</h3>
         <label>Strip width (m) <input type="number" id="cfg-width" min="5" max="100" step="1"></label>
         <label>Rows <input type="number" id="cfg-rows" min="1" max="5" step="1"></label>
         <label>In-row spacing (m) <input type="number" id="cfg-spacing" min="2.9" max="5" step="0.1"></label>
@@ -154,8 +147,8 @@
           <input type="range" id="cfg-cropshare" min="0" max="100" step="10" value="50"></label>
       </section>
 
-      <section class="panel-block">
-        <h2>Species mix</h2>
+      <section class="panel-block substep">
+        <h3>Species mix</h3>
         <label class="row"><input type="radio" name="mixmode" value="recommended" id="mix-rec"> Recommended per segment</label>
         <label class="row"><input type="radio" name="mixmode" value="manual" id="mix-man"> Manual global mix</label>
         <div id="mix-sliders">
@@ -166,8 +159,8 @@
         </div>
       </section>
 
-      <section class="panel-block">
-        <h2>Carbon &amp; finance</h2>
+      <section class="panel-block substep">
+        <h3>Carbon &amp; finance</h3>
         <label>Carbon price (USD/t) <input type="number" id="cfg-price" min="1" step="0.5"></label>
         <label>Price escalation (%/yr) <input type="number" id="cfg-esc" min="0" max="20" step="0.5"></label>
         <label>Discount rate (%) <input type="number" id="cfg-discount" min="0" max="30" step="0.5"></label>
@@ -189,8 +182,8 @@
         </details>
       </section>
 
-      <section class="panel-block">
-        <h2>Scenario</h2>
+      <section class="panel-block substep">
+        <h3>Export &amp; share</h3>
         <div class="btn-row">
           <button id="btn-export-csv">CSV</button>
           <button id="btn-export-geojson">GeoJSON</button>
@@ -200,10 +193,23 @@
         </div>
         <button id="btn-share" class="wide">Copy share link</button>
       </section>
+
+      <section class="panel-block" id="block-colour">
+        <h2>Map colouring</h2>
+        <p class="hint">Changes colours only — never filters or selects. Use the 🖌 button on any Step 1 criterion to colour the map by that attribute, or pick a default view:</p>
+        <div class="btn-row">
+          <button class="paint" type="button" data-overlay="suit">🖌 Suitability class</button>
+          <button class="paint" type="button" data-overlay="sel">🖌 Selection state</button>
+        </div>
+        <div id="overlay-legend" class="hint"></div>
+        <label class="row"><input type="checkbox" id="roads-toggle"> Show roads &amp; river-access points
+          <button class="info" type="button" data-tip="Draws the OSM roads used by the access analysis (dark grey-brown, drawn under the rivers; thicker = bigger road, dashed = track — tracks appear when zoomed in) and cyan dots where a road comes within 250 m of a river segment. For logistics planning and visually verifying the road-adjacent classification.">i</button></label>
+      </section>
     </aside>
 
     <div id="map-wrap">
       <div id="map"></div>
+      <button id="btn-panel-toggle" title="Show/hide the steps panel">☰ Steps</button>
 
       <div id="filter-summary" class="hidden">
         <span id="filter-summary-text"></span>

@@ -94,6 +94,8 @@ export class SuitabilityMap {
         return n >= 20 ? '#a50f15' : n >= 17 ? '#de2d26' : n >= 15 ? '#fb6a4a'
           : n >= 13 ? '#fcae91' : '#fee5d9';
       }
+      case 'sel':
+        return '#9aa59d';   // unselected; selected segments keep the cyan style
       case 'cold':
         return p.cm ? '#6a51a3' : '#b8ceb8';
       default:
@@ -161,16 +163,36 @@ export class SuitabilityMap {
     return this.features.filter(f => this.selected.has(f.properties.id)).map(f => f.properties);
   }
 
-  selectVisibleHigh() {
+  /* Step 2 tool: select every filtered-in segment in the current viewport.
+   * Filter-aware, not class-aware — Step 1 already did the narrowing. */
+  selectVisibleMatching() {
     const b = this.map.getBounds();
     const add = [];
     for (const f of this.features) {
       const p = f.properties;
-      if (p.c !== 'h' || !this.passesFilter(p)) continue;
+      if (p.c === 'e' || !this.passesFilter(p)) continue;
       const [x, y] = midpoint(f);
       if (b.contains([y, x])) add.push(p.id);
     }
     this.setSelection([...this.selected, ...add]);
+  }
+
+  /* Step 2 tool: one-shot rectangle/polygon draw that selects the matching
+   * segments inside it (the shape itself is discarded). */
+  startSelectDraw(shape) {
+    this._selectDraw = true;
+    this.map.pm.enableDraw(shape, { snappable: false });
+  }
+
+  _selectWithinRing(ring) {
+    const add = [];
+    for (const f of this.features) {
+      const p = f.properties;
+      if (p.c === 'e' || !this.passesFilter(p)) continue;
+      const [x, y] = midpoint(f);
+      if (pointInRing(y, x, ring)) add.push(p.id);
+    }
+    if (add.length) this.setSelection([...this.selected, ...add]);
   }
 
   /* Shift-drag box select (replaces Leaflet's shift-drag box zoom). */
@@ -200,7 +222,7 @@ export class SuitabilityMap {
       const add = [];
       for (const f of this.features) {
         const p = f.properties;
-        if (p.c === 'e') continue;
+        if (p.c === 'e' || !this.passesFilter(p)) continue;
         const [x, y] = midpoint(f);
         if (bounds.contains([y, x])) add.push(p.id);
       }
@@ -217,7 +239,17 @@ export class SuitabilityMap {
       drawRectangle: false, drawCircle: false, drawText: false,
       editMode: true, dragMode: false, cutPolygon: false, removalMode: true, rotateMode: false,
     });
+    // clear the select-draw flag when a draw is cancelled; deferred so a
+    // pm:create fired in the same tick is still handled in select mode
+    this.map.on('pm:drawend', () => setTimeout(() => { this._selectDraw = false; }, 0));
     this.map.on('pm:create', e => {
+      if (this._selectDraw) {
+        const ring = e.layer.getLatLngs()[0];
+        this.map.removeLayer(e.layer);
+        this._selectDraw = false;
+        this._selectWithinRing(ring);
+        return;
+      }
       const layer = e.layer;
       const id = `d${++this._drawnSeq}`;
       layer.setStyle({ color: '#8e44ad', weight: 2, fillOpacity: 0.15 });
@@ -309,6 +341,18 @@ export class SuitabilityMap {
 function midpoint(f) {
   const c = f.geometry.coordinates;
   return c[Math.floor(c.length / 2)];
+}
+
+/* Ray-cast point-in-polygon on a ring of LatLngs. */
+function pointInRing(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j];
+    if ((a.lat > lat) !== (b.lat > lat) &&
+        lng < (b.lng - a.lng) * (lat - a.lat) / (b.lat - a.lat) + a.lng)
+      inside = !inside;
+  }
+  return inside;
 }
 
 /* Spherical polygon area (ha) — shoelace on an equirectangular projection at
