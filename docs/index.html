@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="vendor/leaflet-geoman.css">
 <!-- ?v= version-stamps our own assets so a cached copy can never mix with a
      newer index.html (Pages caches for 10 min); bump on every release -->
-<link rel="stylesheet" href="css/app.css?v=2">
+<link rel="stylesheet" href="css/app.css?v=3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎋</text></svg>">
 </head>
 <body>
@@ -36,20 +36,6 @@
       <section class="panel-block step" id="block-filters">
         <h2><span class="step-num">1</span> Filter the river network</h2>
         <p class="hint step-lead">Narrow the whole coast down to river banks that fit your strategy. Non-matching segments fade on the map — nothing is selected yet.</p>
-        <div class="preset-box">
-          <button class="preset-btn" data-preset="op">Easy to plant + community nearby</button>
-          <p class="preset-desc">score ≥ trial benchmark · road or boat access · &gt;1,000 people within 5 km</p>
-          <span class="preset-stat" id="preset-op-stat"></span>
-          <button class="preset-btn" data-preset="bio">Best biodiversity case</button>
-          <p class="preset-desc">score ≥ trial benchmark · within 10 km of a protected area</p>
-          <span class="preset-stat" id="preset-bio-stat"></span>
-          <div id="saved-presets"></div>
-          <div class="btn-row">
-            <button id="preset-save">Save current filters as preset</button>
-            <button id="preset-clear">Reset filters</button>
-          </div>
-          <p class="hint">Presets are saved filter combinations, nothing more — they tick the checkboxes below and you tweak from there. Click an active preset again to turn it off.</p>
-        </div>
 
         <div class="criterion">
           <label class="row"><input type="checkbox" id="fe-suit" class="f-en"> Suitability
@@ -116,25 +102,34 @@
         </div>
 
         <div class="derived" id="filter-match"></div>
+        <div class="preset-box">
+          <div id="saved-presets"></div>
+          <div class="btn-row">
+            <button id="preset-save">Save current filters as preset</button>
+            <button id="preset-clear">Reset filters</button>
+          </div>
+          <p class="hint">Presets are saved filter combinations, nothing more — they tick the criteria above and you tweak from there. Click one to apply it, click again to turn it off, ✕ deletes it.</p>
+        </div>
       </section>
 
       <section class="panel-block step" id="block-select">
         <h2><span class="step-num">2</span> Select your target area</h2>
-        <p class="hint step-lead">Build your selection — the set of segments every figure in Step 3 is computed from. Only segments matching the Step 1 filters get picked up.</p>
+        <p class="hint step-lead">Build your selection — the set of segments every result is computed from. Only segments matching the Step 1 filters get picked up.</p>
         <div class="btn-row">
           <button id="btn-select-box">⬚ Draw box to select</button>
           <button id="btn-select-poly">⬠ Draw polygon to select</button>
         </div>
         <button id="btn-select-visible" class="wide">Select all matching segments in current map view</button>
         <button id="btn-clear" class="wide">Clear selection</button>
-        <p class="hint">You can also click single segments on the map to add or remove them; shift-drag draws a quick selection box. For planting areas the river data missed, draw a free polygon with the toolbar on the left edge of the map.</p>
+        <p class="hint">You can also click single segments on the map to add or remove them; shift-drag or the polygon tool in the map's left toolbar also select.</p>
+        <button id="btn-custom-area" class="wide subtle">Add a custom planting area (advanced)</button>
+        <p class="hint">Draws a polygon whose full enclosed area feeds the planting model — meant for small gap patches the river data missed, not region boxes. Anything over 100 ha asks for confirmation.</p>
         <div id="drawn-list"></div>
       </section>
 
-      <section class="panel-block step" id="block-results">
-        <h2><span class="step-num">3</span> Results</h2>
-        <p class="hint step-lead">Figures below are computed for your selected segments only.</p>
-        <p class="hint">Read them in the counter bar and year slider at the bottom of the map; 📈 opens the chart. The settings here adjust the underlying model.</p>
+      <section class="panel-block step" id="block-config">
+        <h2><span class="step-num">3</span> Configure planting &amp; economics</h2>
+        <p class="hint step-lead">These settings define what gets planted and how it's valued — they apply to your selected area.</p>
       </section>
 
       <section class="panel-block substep">
@@ -184,8 +179,10 @@
         </details>
       </section>
 
-      <section class="panel-block substep">
-        <h3>Export &amp; share</h3>
+      <section class="panel-block step" id="block-results">
+        <h2><span class="step-num">4</span> Results</h2>
+        <p class="hint step-lead">Figures below are computed for your selected segments only.</p>
+        <p class="hint">Read them live in the counter bar and year slider at the bottom of the map; 📈 opens the chart.</p>
         <div class="btn-row">
           <button id="btn-export-csv">CSV</button>
           <button id="btn-export-geojson">GeoJSON</button>
@@ -226,6 +223,7 @@
       </div>
 
       <div id="results-bar">
+        <div id="consistency-error" class="hidden"></div>
         <div class="counter" id="c-bank"><span class="val" id="r-bank">0</span><span class="lab">km of bank protected</span><span class="sub">single-row conservative baseline — layout adjustable</span></div>
         <div class="counter" id="c-tbkm"><span class="val" id="r-tbkm">0</span><span class="lab">km ≥ benchmark</span></div>
         <div class="counter" id="c-area"><span class="val" id="r-area">0</span><span class="lab">effective planted area (ha)</span></div>
@@ -265,6 +263,6 @@
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-geoman.min.js"></script>
 <script src="vendor/chart.umd.js"></script>
-<script type="module" src="js/app.js?v=2"></script>
+<script type="module" src="js/app.js?v=3"></script>
 </body>
 </html>

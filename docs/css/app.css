@@ -255,6 +255,11 @@ button.paint.active { background: var(--accent); border-color: var(--accent); }
 }
 #filter-summary button:hover { background: rgba(255,255,255,.3); }
 body.presenting #filter-summary { top: 84px; }
+#consistency-error {
+  flex-basis: 100%; background: #fdecea; border: 1px solid #f0b4ae; color: #8a1c13;
+  border-radius: 8px; padding: 6px 10px; font-size: 12px; margin-bottom: 4px;
+}
+button.subtle { color: #6b7a70; font-weight: 400; }
 #block-colour .btn-row .paint { font-size: 12px; padding: 5px 9px; }
 #block-colour .btn-row .paint.active { color: #fff; }
 #overlay-legend { min-height: 14px; }

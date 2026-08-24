@@ -1,6 +1,6 @@
 /* RiverGuard app main. */
-import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=2';
-import { SuitabilityMap, popupHtml } from './map.js?v=2';
+import { seedlingsPerHa, computeScenario, buildSelection, netFactor, canopyCover } from './model.js?v=3';
+import { SuitabilityMap, popupHtml } from './map.js?v=3';
 
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
@@ -42,6 +42,13 @@ async function init() {
     onSelectionChange: () => { recompute(); writeHash(); },
     onPolygonsChange: () => { renderDrawnList(); recompute(); },
     popupHtml,
+    /* Custom areas are for small gap patches; a region-sized polygon silently
+     * feeding its full enclosed area into the model is how the 43,000-ha
+     * counter incident happened. */
+    confirmCustomArea: areaHa => areaHa <= 100 || confirm(
+      `This custom area is ${Math.round(areaHa).toLocaleString()} ha. ` +
+      `Custom planting areas feed their FULL enclosed area into the model and are meant ` +
+      `for small patches the river data missed, not region boxes. Add it anyway?`),
   });
   map.loadSegments(segs);
   benchmarkMeta = segs._benchmark || { score: 79, total_km: 0 };
@@ -57,7 +64,8 @@ async function init() {
   readHash();
   recompute();
   $('loading').classList.add('hidden');
-  window.__rg = { map, get params() { return params; }, get scenario() { return scenario; } }; // debug/test handle
+  window.__rg = { map, get params() { return params; }, get scenario() { return scenario; },
+    recheckConsistency: renderConsistency }; // debug/test handle
 }
 
 function liveParams() {
@@ -122,7 +130,7 @@ function initInputs() {
     el.value = get();
     el.addEventListener('input', () => { set(parseFloat(el.value)); recompute(); });
   };
-  bind('cfg-width', () => uiCfg.stripWidthM, v => { uiCfg.stripWidthM = v || 5; updatePresetStats(); });
+  bind('cfg-width', () => uiCfg.stripWidthM, v => { uiCfg.stripWidthM = v || 5; renderSavedPresets(); });
   $('cfg-cropshare').value = uiCfg.croplandShare * 100;
   $('cfg-cropshare-val').textContent = Math.round(uiCfg.croplandShare * 100);
   bind('cfg-rows', () => uiCfg.rows, v => { uiCfg.rows = Math.max(1, Math.min(5, v || 5)); params.planting.rows = uiCfg.rows; });
@@ -166,6 +174,7 @@ function initInputs() {
   $('btn-select-visible').addEventListener('click', () => map.selectVisibleMatching());
   $('btn-select-box').addEventListener('click', () => map.startSelectDraw('Rectangle'));
   $('btn-select-poly').addEventListener('click', () => map.startSelectDraw('Polygon'));
+  $('btn-custom-area').addEventListener('click', () => map.startCustomAreaDraw());
   $('btn-panel-toggle').addEventListener('click', () => {
     const open = $('panel').classList.toggle('open');
     $('btn-panel-toggle').textContent = open ? '✕ Close' : '☰ Steps';
@@ -205,7 +214,7 @@ function initInputs() {
     uiCfg.croplandShare = (+$('cfg-cropshare').value) / 100;
     $('cfg-cropshare-val').textContent = $('cfg-cropshare').value;
     window.__rgCropShare = uiCfg.croplandShare;
-    updatePresetStats(); recompute(); applyFilters();
+    renderSavedPresets(); recompute(); applyFilters();
   });
 
   $('year-slider').addEventListener('input', () => setYear(parseInt($('year-slider').value)));
@@ -237,19 +246,31 @@ function updateMixLabels() {
  * the tool never decides whether an attribute is good or bad. Every criterion
  * is [enable checkbox] + [direction/threshold control]; disabled = zero effect.
  */
-const BUILTIN_PRESETS = {
-  op: {
-    name: 'Easy to plant + community nearby',
-    state: { suit: { on: true, dir: 'tb' }, acc: { on: true, r: true, b: true, x: false }, pop: { on: true, min: 1000 } },
-  },
-  bio: {
-    name: 'Best biodiversity case',
-    state: { suit: { on: true, dir: 'tb' }, pa: { on: true, max: 10 } },
-    /* Cyclone deliberately NOT part of this preset (2026-08-15): conflating the
-     * adaptation narrative with biodiversity proximity wrongly wiped out Anosy
-     * sites near Tsitongambarika. Cyclone stays an independent filter. */
-  },
+/* Former top-level preset buttons, demoted 2026-08-24: they duplicated the
+ * criteria and read as a second filtering system. Seeded ONCE into the
+ * user-deletable saved-presets list; deleting them is permanent. */
+const SEED_PRESETS = {
+  'Easy to plant + community nearby':
+    { suit: { on: true, dir: 'tb' }, acc: { on: true, r: true, b: true, x: false }, pop: { on: true, min: 1000 } },
+  /* Cyclone deliberately NOT part of the biodiversity preset (2026-08-15):
+   * conflating the adaptation narrative with biodiversity proximity wrongly
+   * wiped out Anosy sites near Tsitongambarika. */
+  'Best biodiversity case':
+    { suit: { on: true, dir: 'tb' }, pa: { on: true, max: 10 } },
 };
+
+function seedDefaultPresets() {
+  if (localStorage.getItem('rg_presets_seeded')) return;
+  const saved = loadSavedPresets();
+  for (const [name, state] of Object.entries(SEED_PRESETS)) {
+    if (name in saved) continue;
+    const full = defaultFilterState();
+    for (const [k, v] of Object.entries(state)) full[k] = { ...full[k], ...v, on: true };
+    saved[name] = full;
+  }
+  localStorage.setItem('rg_presets', JSON.stringify(saved));
+  localStorage.setItem('rg_presets_seeded', '1');
+}
 
 function defaultFilterState() {
   return {
@@ -353,12 +374,11 @@ function applyFilters() {
 
 function clearPresetHighlight() {
   activePreset = null;
-  for (const b of document.querySelectorAll('.preset-btn, .saved-preset-btn')) b.classList.remove('active');
+  for (const b of document.querySelectorAll('.saved-preset-btn')) b.classList.remove('active');
 }
 
 function presetName(key) {
   if (!key) return null;
-  if (BUILTIN_PRESETS[key]) return BUILTIN_PRESETS[key].name;
   return key.startsWith('saved:') ? key.slice(6) : key;
 }
 
@@ -392,6 +412,7 @@ function renderSavedPresets() {
     const btn = document.createElement('button');
     btn.className = 'saved-preset-btn';
     btn.textContent = name;
+    if (activePreset === `saved:${name}`) btn.classList.add('active');
     btn.addEventListener('click', () => activatePreset(`saved:${name}`, state, btn));
     const del = document.createElement('button');
     del.className = 'saved-preset-del';
@@ -418,10 +439,6 @@ function initFilterControls() {
     'fe-pa', 'fd-pa', 'fe-cyc', 'fd-cyc', 'fe-cold', 'fd-cold', 'fe-fire', 'fd-fire', 'fe-sal'];
   for (const id of ids)
     $(id).addEventListener('input', () => { clearPresetHighlight(); applyFilters(); });
-  for (const btn of document.querySelectorAll('.preset-btn')) {
-    const key = btn.dataset.preset;
-    btn.addEventListener('click', () => activatePreset(key, BUILTIN_PRESETS[key].state, btn));
-  }
   $('preset-clear').addEventListener('click', () => {
     writeFilterState(defaultFilterState());
     clearPresetHighlight();
@@ -442,8 +459,8 @@ function initFilterControls() {
     localStorage.setItem('rg_presets', JSON.stringify(saved));
     renderSavedPresets();
   });
+  seedDefaultPresets();
   renderSavedPresets();
-  updatePresetStats();
   applyFilters();
 }
 
@@ -496,16 +513,48 @@ function updatePresentationLines() {
   if (el) el.textContent = activePreset ? `Showing: ${presetName(activePreset)}` : '';
 }
 
-function updatePresetStats() {
-  for (const [key, def] of Object.entries(BUILTIN_PRESETS)) {
-    const full = defaultFilterState();
-    for (const [k, v] of Object.entries(def.state)) full[k] = { ...full[k], ...v, on: true };
-    const m = matchStats(predicateFrom(full));
-    $(`preset-${key}-stat`).textContent = `${fmt(m.n)} segs · ${fmt(m.km)} km · ${fmt(m.ha)} ha`;
-  }
-}
 
 /* ------------------------------------------------ compute + render */
+/* Permanent internal-consistency assertion (added 2026-08-24 after the
+ * 43,000-ha incident): every render, recompute the headline aggregates
+ * directly from current map state and compare with what the scenario is
+ * about to display. On mismatch, show an error instead of wrong numbers. */
+function verifyConsistency() {
+  if (!scenario) return { ok: true, problems: [] };
+  const sel = scenario.selection;
+  const share = uiCfg.croplandShare ?? 0.5;
+  let km = 0, segHa = 0;
+  for (const p of map.selectedProps()) {
+    km += p.L / 1000;
+    const plantable = Math.max(0, (p.lf ?? 1) - (p.uc ?? 0) * (1 - share));
+    segHa += p.L / 1000 * uiCfg.stripWidthM / 10 * plantable;
+  }
+  let polyHa = 0;
+  for (const [, d] of map.drawnPolys) polyHa += d.areaHa;
+  const expectedHa = segHa + polyHa;
+  const problems = [];
+  if (Math.abs(sel.bankKm - km) > 0.05 + km * 1e-4)
+    problems.push(`bank ${sel.bankKm.toFixed(1)} km ≠ selected segments' ${km.toFixed(1)} km`);
+  if (Math.abs(sel.areaHa - expectedHa) > 0.05 + expectedHa * 1e-4)
+    problems.push(`area ${sel.areaHa.toFixed(1)} ha ≠ bank km × strip × plantable + custom areas = ${expectedHa.toFixed(1)} ha`);
+  if (Math.abs(sel.totalSeedlings - sel.areaHa * sel.seedlingsPerHa) > 1 + sel.totalSeedlings * 1e-4)
+    problems.push('seedlings ≠ area × density');
+  return { ok: problems.length === 0, problems, expectedHa, expectedKm: km, customHa: polyHa };
+}
+
+function renderConsistency() {
+  const r = verifyConsistency();
+  const el = $('consistency-error');
+  el.classList.toggle('hidden', r.ok);
+  if (!r.ok) {
+    el.textContent = '⚠ Internal consistency error — the figures below disagree with a direct ' +
+      'recomputation and are hidden rather than shown wrong (' + r.problems.join('; ') +
+      '). Reload the page; if it persists, report this state.';
+    for (const v of document.querySelectorAll('#results-bar .counter .val')) v.textContent = '—';
+  }
+  return r;
+}
+
 function recompute() {
   const segProps = map.selectedProps();
   const polys = [...map.drawnPolys.entries()].map(([id, d]) => ({ id, areaHa: d.areaHa, mix: d.mix }));
@@ -544,6 +593,7 @@ function renderResults() {
   const revCum = s.revenue.slice(0, y + 1).reduce((a, b) => a + b, 0);
   $('r-revenue').textContent = fmtM(revCum);
   $('r-npv').textContent = fmtM(s.totals.npv);
+  renderConsistency();
 }
 
 function setYear(y, keep = false) {
@@ -629,7 +679,7 @@ function renderSpeciesBreakdown() {
 function renderDrawnList() {
   const el = $('drawn-list');
   const items = [...map.drawnPolys.entries()];
-  el.innerHTML = items.length ? '<h3 style="font-size:11px;margin:8px 0 2px">Drawn areas</h3>' : '';
+  el.innerHTML = items.length ? '<h3 style="font-size:11px;margin:8px 0 2px">Custom planting areas</h3>' : '';
   for (const [id, d] of items) {
     const row = document.createElement('div');
     row.className = 'drawn-item';

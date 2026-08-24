@@ -180,8 +180,15 @@ export class SuitabilityMap {
   /* Step 2 tool: one-shot rectangle/polygon draw that selects the matching
    * segments inside it (the shape itself is discarded). */
   startSelectDraw(shape) {
-    this._selectDraw = true;
+    this._customArea = false;
     this.map.pm.enableDraw(shape, { snappable: false });
+  }
+
+  /* Explicitly armed custom-planting-area draw (the only way a drawn shape
+   * persists and feeds the model). cb.confirmCustomArea guards oversized areas. */
+  startCustomAreaDraw() {
+    this._customArea = true;
+    this.map.pm.enableDraw('Polygon', { snappable: false });
   }
 
   _selectWithinRing(ring) {
@@ -239,15 +246,25 @@ export class SuitabilityMap {
       drawRectangle: false, drawCircle: false, drawText: false,
       editMode: true, dragMode: false, cutPolygon: false, removalMode: true, rotateMode: false,
     });
-    // clear the select-draw flag when a draw is cancelled; deferred so a
-    // pm:create fired in the same tick is still handled in select mode
-    this.map.on('pm:drawend', () => setTimeout(() => { this._selectDraw = false; }, 0));
+    // disarm custom-area mode when a draw ends/cancels; deferred so a
+    // pm:create fired in the same tick still sees the flag
+    this.map.on('pm:drawend', () => setTimeout(() => { this._customArea = false; }, 0));
     this.map.on('pm:create', e => {
-      if (this._selectDraw) {
+      /* DEFAULT for every draw (buttons, map toolbar, anything): SELECTION —
+       * the shape picks up matching segments and is discarded. A shape only
+       * persists as a custom planting area when that mode was explicitly
+       * armed via startCustomAreaDraw(), so a dropped flag can at worst turn
+       * a custom area into a selection, never silently inflate the model. */
+      if (!this._customArea) {
         const ring = e.layer.getLatLngs()[0];
         this.map.removeLayer(e.layer);
-        this._selectDraw = false;
         this._selectWithinRing(ring);
+        return;
+      }
+      this._customArea = false;
+      const areaHa = polygonAreaHa(e.layer);
+      if (this.cb.confirmCustomArea && !this.cb.confirmCustomArea(areaHa)) {
+        this.map.removeLayer(e.layer);
         return;
       }
       const layer = e.layer;
@@ -262,7 +279,7 @@ export class SuitabilityMap {
       layer.on('pm:remove', () => { this.drawnPolys.delete(id); this.cb.onPolygonsChange(); });
       layer.bindPopup(() => {
         const d = this.drawnPolys.get(id);
-        return `<b>Drawn area ${id}</b><br>${d ? d.areaHa.toFixed(1) : '?'} ha<br>` +
+        return `<b>Custom planting area ${id}</b><br>${d ? d.areaHa.toFixed(1) : '?'} ha<br>` +
           `<span style="font-size:11px">Uses global species mix. Attributes not sampled — field data needed.</span>`;
       });
       this.cb.onPolygonsChange();
