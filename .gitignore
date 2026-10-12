@@ -4,3 +4,6 @@ data/derived/
 __pycache__/
 *.pyc
 .DS_Store
+
+pipeline/plantation_tracker/output/cache/clusters.json
+pipeline/plantation_tracker/output/good_clusters.geojson
